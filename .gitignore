@@ -25,6 +25,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.history/
 
 # Testing/coverage
 coverage/
