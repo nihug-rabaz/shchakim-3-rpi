@@ -1,0 +1,986 @@
+<html><head><style type="text/css">.turbo-progress-bar {
+    position: fixed;
+    display: block;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: #0076ff;
+    z-index: 9999;
+    transition:
+      width 300ms ease-out,
+      opacity 150ms 150ms ease-in;
+    transform: translate3d(0, 0, 0);
+  }
+  </style><style type="text/css">.turbo-progress-bar {
+    position: fixed;
+    display: block;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: #0076ff;
+    z-index: 9999;
+    transition:
+      width 300ms ease-out,
+      opacity 150ms 150ms ease-in;
+    transform: translate3d(0, 0, 0);
+  }
+  </style><style id="hotspots-styles">
+      .hotspot {
+        position: absolute;
+        border: 1px solid #2a9fd8;
+        background: rgba(0, 173, 255, 0.54);
+        opacity: 0;
+        z-index: -1;
+        pointer-events:none;
+      }
+    </style><style id="hide-styles">
+      .hotspot {
+        display:none !important;
+      }
+    </style><script id="s_turbo" src="https://animaapp.s3.amazonaws.com/static/turbo.es2017-umd.js"></script><script id="imgloaded-js-script" src="https://unpkg.com/imagesloaded@4/imagesloaded.pkgd.min.js"></script><script id="anime-js-script" src="https://cdn.jsdelivr.net/npm/animejs@3.1.0/lib/anime.min.js" integrity="sha256-98Q574VkbV+PkxXCKSgL6jVq9mrVbS7uCdA+vt0sLS8=" crossorigin="anonymous"></script></head><body style="margin: 0;" cz-shortcut-listen="true"><style>
+  @import url("https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css");
+  
+  @font-face {
+    font-family: "Leon-Regular";
+    font-style: normal;
+    font-weight: 400;
+    src: url('https://anima-uploads.s3.amazonaws.com/projects/68f8839d8b22a16a21140e44/fonts/leon-regular.ttf') format("truetype");
+  }
+  
+  @font-face {
+    font-family: "Leon-Bold";
+    font-style: normal;
+    font-weight: 700;
+    src: url('https://anima-uploads.s3.amazonaws.com/projects/68f8839d8b22a16a21140e44/fonts/leon-bold.ttf') format("truetype");
+  }
+  
+  @font-face {
+    font-family: "Open 24 Display St-Regular";
+    font-style: normal;
+    font-weight: 400;
+    src: url('https://anima-uploads.s3.amazonaws.com/projects/605c9e8a9a7e572ea9760f4f/fonts/open-24-display-st.ttf') format("truetype");
+  }
+  /* The following line is used to measure usage of this code. You can remove it if you want. */
+  @import url("https://px.animaapp.com/68bd0f0ee2e60227b2021c32.68bd0f0fe2e60227b2021c35.jF3uDvW.hch.png");
+  
+  
+  .screen textarea:focus,
+  .screen input:focus {
+    outline: none;
+  }
+  
+  .screen * {
+    -webkit-font-smoothing: antialiased;
+    box-sizing: border-box;
+  }
+  
+  .screen div {
+    -webkit-text-size-adjust: none;
+  }
+  
+  .component-wrapper a {
+    display: contents;
+    pointer-events: auto;
+    text-decoration: none;
+  }
+  
+  .component-wrapper * {
+    -webkit-font-smoothing: antialiased;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  
+  .component-wrapper a *,
+  .component-wrapper input,
+  .component-wrapper video,
+  .component-wrapper iframe {
+    pointer-events: auto;
+  }
+  
+  .component-wrapper.not-ready,
+  .component-wrapper.not-ready * {
+    visibility: hidden !important;
+  }
+  
+  .screen a {
+    display: contents;
+    text-decoration: none;
+  }
+  
+  .full-width-a {
+    width: 100%;
+  }
+  
+  .full-height-a {
+    height: 100%;
+  }
+  
+  .container-center-vertical {
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    pointer-events: none;
+  }
+  
+  .container-center-vertical > * {
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+  
+  .container-center-horizontal {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    pointer-events: none;
+    width: 100%;
+  }
+  
+  .container-center-horizontal > * {
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+  
+  .auto-animated div {
+    --z-index: -1;
+    opacity: 0;
+    position: absolute;
+  }
+  
+  .auto-animated input {
+    --z-index: -1;
+    opacity: 0;
+    position: absolute;
+  }
+  
+  .auto-animated .container-center-vertical,
+  .auto-animated .container-center-horizontal {
+    opacity: 1;
+  }
+  
+  .overlay-base {
+    display: none;
+    height: 100%;
+    opacity: 0;
+    position: fixed;
+    top: 0;
+    width: 100%;
+  }
+  
+  .overlay-base.animate-appear {
+    align-items: center;
+    animation: reveal 0.3s ease-in-out 1 normal forwards;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+  }
+  
+  .overlay-base.animate-disappear {
+    animation: reveal 0.3s ease-in-out 1 reverse forwards;
+    display: block;
+    opacity: 1;
+    pointer-events: none;
+  }
+  
+  .overlay-base.animate-disappear * {
+    pointer-events: none;
+  }
+  
+  @keyframes reveal {
+    from { opacity: 0 }
+   to { opacity: 1 }
+  }
+  
+  .animate-nodelay {
+    animation-delay: 0s;
+  }
+  
+  .align-self-flex-start {
+    align-self: flex-start;
+  }
+  
+  .align-self-flex-end {
+    align-self: flex-end;
+  }
+  
+  .align-self-flex-center {
+    align-self: flex-center;
+  }
+  
+  .valign-text-middle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .valign-text-bottom {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  
+  input:focus {
+    outline: none;
+  }
+  
+  .listeners-active,
+  .listeners-active * {
+    pointer-events: auto;
+  }
+  
+  .hidden,
+  .hidden * {
+    pointer-events: none;
+    visibility: hidden;
+  }
+  
+  .smart-layers-pointers,
+  .smart-layers-pointers * {
+    pointer-events: auto;
+    visibility: visible;
+  }
+  
+  .listeners-active-click,
+  .listeners-active-click * {
+    cursor: pointer;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+  :root { 
+    --black: #000000;
+    --white: #ffffff;
+   
+    --font-size-l: 34px;
+    --font-size-m: 33px;
+    --font-size-s: 32px;
+    --font-size-xl: 45px;
+    --font-size-xs: 24px;
+    --font-size-xxl: 52px;
+    --font-size-xxxl: 96px;
+   
+    --font-family-leon-bold: "Leon-Bold", Helvetica;
+    --font-family-leon-productbold: "Leon-ProductBold", Helvetica;
+    --font-family-leon-productregular: "Leon-ProductRegular", Helvetica;
+    --font-family-leon-regular: "Leon-Regular", Helvetica;
+    --font-family-open_24_display_st-regular: "Open 24 Display St-Regular", Helvetica;
+    --font-family-polin-a-regular: "Polin-A-Regular", Helvetica;
+    --font-family-polin-a-semibold: "Polin-A-Semibold", Helvetica;
+  }
+  .leon-productregular-normal-white-32px {
+    color: var(--white);
+    font-family: var(--font-family-leon-productregular);
+    font-size: var(--font-size-s);
+    font-style: normal;
+    font-weight: 400;
+  }
+  
+  .polin-a-normal-black-52px {
+    color: var(--black);
+    font-family: var(--font-family-polin-a-semibold);
+    font-size: var(--font-size-xxl);
+    font-style: normal;
+    font-weight: 400;
+  }
+  
+  .leon-regular-normal-white-96px {
+    color: var(--white);
+    font-family: var(--font-family-leon-regular);
+    font-size: var(--font-size-xxxl);
+    font-style: normal;
+    font-weight: 400;
+  }
+  
+  .leon-product-bold-white-45px {
+    color: var(--white);
+    font-family: var(--font-family-leon-productbold);
+    font-size: var(--font-size-xl);
+    font-style: normal;
+    font-weight: 700;
+  }
+  
+  :root {
+  }
+  
+  
+  /* screen - frame-18 */
+  
+  .frame-18 {
+    margin: 0px;
+    min-height: 1531px;
+    min-width: 2642px;
+    overflow: hidden;
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
+  
+  .frame-18 .rectangle-51-7kVli2 {
+    background: linear-gradient(90deg, rgba(15, 6, 0, 1) 0%, rgba(117, 47, 0, 1) 100%);
+    background-color: transparent;
+    border-radius: 30px;
+    height: 1881px;
+    left: -110px;
+    position: absolute;
+    top: -57px;
+    width: 2806px;
+  }
+  
+  .frame-18 .x1853632d-c27c-419d-9ae9-ef8c151659c2-5-7kVli2 {
+    background-color: transparent;
+    height: 211px;
+    left: 484px;
+    position: absolute;
+    top: 0px;
+    width: 651px;
+  }
+  
+  .frame-18 .rectangle-11-7kVli2 {
+    background-color: transparent;
+    height: 1596px;
+    left: 136px;
+    position: absolute;
+    top: -7736px;
+    width: 2837px;
+  }
+  
+  .frame-18 .x5-7kVli2 {
+    background-color: transparent;
+    direction: rtl;
+    height: auto;
+    left: 1358px;
+    letter-spacing: 0.00px;
+    line-height: 72px;
+    position: absolute;
+    text-align: right;
+    top: 75px;
+    width: 1094px;
+  }
+  
+  .frame-18 .span0-J6uY4J {
+  }
+  
+  .frame-18 .span1-J6uY4J {
+    color: var(--white);
+    font-family: var(--font-family-leon-bold);
+    font-size: var(--font-size-xxxl);
+    font-style: normal;
+    font-weight: 700;
+  }
+  
+  .frame-18 .span2-J6uY4J {
+  }
+  
+  .frame-18 .title-7kVli2 {
+    background-color: transparent;
+    color: var(--white);
+    font-family: var(--font-family-open_24_display_st-regular);
+    font-size: 134px;
+    font-style: normal;
+    font-weight: 400;
+    height: auto;
+    left: 101px;
+    letter-spacing: 0.00px;
+    line-height: 52px;
+    position: absolute;
+    text-align: left;
+    top: 79px;
+    white-space: nowrap;
+    width: auto;
+  }
+  
+  .frame-18 .x1825-7kVli2 {
+    background-color: transparent;
+    direction: rtl;
+    height: auto;
+    left: 1123px;
+    letter-spacing: 0.00px;
+    line-height: 40px;
+    position: absolute;
+    text-align: right;
+    top: 75px;
+    width: 411px;
+  }
+  
+  .frame-18 .x-7kVli2 {
+    left: 1682px;
+    line-height: 40px;
+    text-align: right;
+    top: 190px;
+    width: 817px;
+  }
+  
+  .frame-18 .x-uw3PhT {
+    left: 117px;
+    line-height: 40px;
+    text-align: right;
+    top: 945px;
+    width: 817px;
+  }
+  
+  .frame-18 .rectangle-17-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 132px;
+    left: 993px;
+    position: absolute;
+    top: 1099px;
+    width: 428px;
+  }
+  
+  .frame-18 .rectangle-19-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 132px;
+    left: 531px;
+    position: absolute;
+    top: 1099px;
+    width: 428px;
+  }
+  
+  .frame-18 .rectangle-21-7kVli2 {
+    background-color: var(--white);
+    border: 1px solid;
+    border-color: #b9e78a;
+    border-radius: 30px;
+    height: 132px;
+    left: 69px;
+    position: absolute;
+    top: 1099px;
+    width: 428px;
+  }
+  
+  .frame-18 .rectangle-18-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 132px;
+    left: 993px;
+    position: absolute;
+    top: 1276px;
+    width: 428px;
+  }
+  
+  .frame-18 .rectangle-20-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 132px;
+    left: 531px;
+    position: absolute;
+    top: 1276px;
+    width: 428px;
+  }
+  
+  .frame-18 .rectangle-23-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 71px;
+    position: absolute;
+    top: 1437px;
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-24-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 130px;
+    position: absolute;
+    top: 1437px;
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-25-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 189px;
+    position: absolute;
+    top: 1437px;
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-26-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 248px;
+    position: absolute;
+    top: 1437px;
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-27-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 87px;
+    position: absolute;
+    top: 314px;
+    transform: rotate(90.00deg);
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-28-7kVli2 {
+    background-color: var(--white);
+    border: 4px solid;
+    border-color: #e70606;
+    border-radius: 30px;
+    height: 30px;
+    left: 87px;
+    position: absolute;
+    top: 373px;
+    transform: rotate(90.00deg);
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-29-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 87px;
+    position: absolute;
+    top: 432px;
+    transform: rotate(90.00deg);
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-30-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 30px;
+    left: 87px;
+    position: absolute;
+    top: 491px;
+    transform: rotate(90.00deg);
+    width: 30px;
+  }
+  
+  .frame-18 .rectangle-22-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 132px;
+    left: 69px;
+    position: absolute;
+    top: 1276px;
+    width: 428px;
+  }
+  
+  .frame-18 .mincha-ktana-19-7kVli2 {
+    background-color: transparent;
+    height: 86px;
+    left: 1317px;
+    position: absolute;
+    top: 1299px;
+    width: 86px;
+  }
+  
+  .frame-18 .rectangle-33-7kVli2 {
+    background-color: transparent;
+    height: 132px;
+    left: 761px;
+    position: absolute;
+    top: 1099px;
+    width: 198px;
+  }
+  
+  .frame-18 .rectangle-35-7kVli2 {
+    background-color: transparent;
+    height: 132px;
+    left: 1223px;
+    position: absolute;
+    top: 1276px;
+    width: 198px;
+  }
+  
+  .frame-18 .rectangle-34-7kVli2 {
+    background-color: transparent;
+    height: 132px;
+    left: 304px;
+    position: absolute;
+    top: 1099px;
+    width: 198px;
+  }
+  
+  .frame-18 .rectangle-36-7kVli2 {
+    background-color: transparent;
+    height: 132px;
+    left: 761px;
+    position: absolute;
+    top: 1276px;
+    width: 207px;
+  }
+  
+  .frame-18 .rectangle-37-7kVli2 {
+    background-color: transparent;
+    height: 132px;
+    left: 304px;
+    position: absolute;
+    top: 1276px;
+    width: 198px;
+  }
+  
+  .frame-18 .tzut-2-7kVli2 {
+    background-color: transparent;
+    height: 78px;
+    left: 857px;
+    position: absolute;
+    top: 1121px;
+    width: 77px;
+  }
+  
+  .frame-18 .mincha-ktana-18-7kVli2 {
+    background-color: transparent;
+    height: 85px;
+    left: 387px;
+    position: absolute;
+    top: 1299px;
+    width: 85px;
+  }
+  
+  .frame-18 .mincha-ktana-16-7kVli2 {
+    background-color: transparent;
+    height: 64px;
+    left: 398px;
+    position: absolute;
+    top: 1128px;
+    width: 64px;
+  }
+  
+  .frame-18 .mincha-ktana-17-7kVli2 {
+    background-color: transparent;
+    height: 84px;
+    left: 849px;
+    position: absolute;
+    top: 1300px;
+    width: 84px;
+  }
+  
+  .frame-18 .x5-1-7kVli2 {
+    background-color: transparent;
+    height: 91px;
+    left: 2472px;
+    position: absolute;
+    top: 75px;
+    width: 89px;
+  }
+  
+  .frame-18 .text_label-7kVli2 {
+    left: 997px;
+    line-height: 46px;
+    text-align: right;
+    top: 1053px;
+    width: 411px;
+  }
+  
+  .frame-18 .text_label-uw3PhT {
+    left: 997px;
+    line-height: 46px;
+    text-align: right;
+    top: 1231px;
+    width: 411px;
+  }
+  
+  .frame-18 .text_label-0MVGL4 {
+    left: 531px;
+    line-height: 46px;
+    text-align: right;
+    top: 1053px;
+    width: 411px;
+  }
+  
+  .frame-18 .text_label-I2QLxE {
+    left: 531px;
+    line-height: 46px;
+    text-align: right;
+    top: 1231px;
+    width: 411px;
+  }
+  
+  .frame-18 .text_label-xcJxFm {
+    left: 61px;
+    line-height: 46px;
+    text-align: right;
+    top: 1053px;
+    width: 411px;
+  }
+  
+  .frame-18 .text_label-s1cct3 {
+    left: 61px;
+    line-height: 46px;
+    text-align: right;
+    top: 1231px;
+    width: 411px;
+  }
+  
+  .frame-18 .x0422-7kVli2 {
+    left: 1036px;
+    top: 1128px;
+  }
+  
+  .frame-18 .x0422-uw3PhT {
+    left: 1036px;
+    top: 1306px;
+  }
+  
+  .frame-18 .x0422-0MVGL4 {
+    left: 578px;
+    top: 1128px;
+  }
+  
+  .frame-18 .x0422-I2QLxE {
+    left: 578px;
+    top: 1306px;
+  }
+  
+  .frame-18 .x0422-xcJxFm {
+    left: 108px;
+    top: 1128px;
+  }
+  
+  .frame-18 .x0422-s1cct3 {
+    left: 108px;
+    top: 1306px;
+  }
+  
+  .frame-18 .rectangle-26-uw3PhT {
+    background-color: transparent;
+    height: 132px;
+    left: 1223px;
+    position: absolute;
+    top: 1099px;
+    width: 198px;
+  }
+  
+  .frame-18 .alot-ha-shachar-2-7kVli2 {
+    background-color: transparent;
+    height: 87px;
+    left: 1307px;
+    object-fit: cover;
+    position: absolute;
+    top: 1121px;
+    width: 87px;
+  }
+  
+  .frame-18 .rectangle-31-7kVli2 {
+    background-color: var(--white);
+    border-radius: 30px;
+    height: 782px;
+    left: 160px;
+    position: absolute;
+    top: 253px;
+    width: 2401px;
+  }
+  
+  .frame-18 .x-0MVGL4 {
+    color: var(--black);
+    font-family: var(--font-family-polin-a-regular);
+    font-size: var(--font-size-l);
+    font-style: normal;
+    font-weight: 400;
+    left: 1779px;
+    line-height: normal;
+    text-align: justify;
+    top: 293px;
+    width: 733px;
+  }
+  
+  .frame-18 .x-I2QLxE {
+    color: var(--black);
+    font-family: var(--font-family-polin-a-regular);
+    font-size: var(--font-size-m);
+    font-style: normal;
+    font-weight: 400;
+    left: 995px;
+    line-height: normal;
+    text-align: justify;
+    top: 293px;
+    width: 732px;
+  }
+  
+  .frame-18 .x-xcJxFm {
+    color: var(--black);
+    font-family: var(--font-family-polin-a-regular);
+    font-size: var(--font-size-m);
+    font-style: normal;
+    font-weight: 400;
+    left: 204px;
+    line-height: normal;
+    text-align: justify;
+    top: 293px;
+    width: 732px;
+  }
+  
+  .frame-18 .x1-7kVli2 {
+    aspect-ratio: 1.000000;
+    background-color: transparent;
+    height: 161px;
+    left: 502px;
+    object-fit: cover;
+    position: absolute;
+    top: 874px;
+    width: 161px;
+  }
+  
+  .frame-18 .x2-7kVli2 {
+    aspect-ratio: 1.000000;
+    background-color: transparent;
+    height: 161px;
+    left: -3600px;
+    object-fit: cover;
+    position: absolute;
+    top: -6783px;
+    width: 161px;
+  }
+  
+  .frame-18 .group-7-7kVli2 {
+    background-color: transparent;
+    height: 324px;
+    left: 1893px;
+    position: absolute;
+    top: 1144px;
+    width: 641px;
+  }
+  
+  .frame-18 .text_label-rU2rt8 {
+    color: var(--white);
+    font-family: var(--font-family-polin-a-semibold);
+    font-size: 40px;
+    font-style: normal;
+    font-weight: 400;
+    left: 0px;
+    line-height: normal;
+    text-align: center;
+    top: 0px;
+    width: 631px;
+  }
+  
+  .frame-18 .text_label-3m85K8 {
+    color: var(--white);
+    font-family: var(--font-family-polin-a-semibold);
+    font-size: var(--font-size-xs);
+    font-style: normal;
+    font-weight: 400;
+    left: 218px;
+    line-height: 24px;
+    text-align: center;
+    top: 267px;
+    width: 167px;
+  }
+  
+  .frame-18 .text_label-pwE4xg {
+    color: var(--white);
+    font-family: var(--font-family-polin-a-semibold);
+    font-size: var(--font-size-xs);
+    font-style: normal;
+    font-weight: 400;
+    left: 235px;
+    line-height: normal;
+    text-align: center;
+    top: 59px;
+    width: 167px;
+  }
+  
+  .frame-18 .text_label-CacFW9 {
+    color: #5f0975;
+    font-family: var(--font-family-polin-a-semibold);
+    font-size: var(--font-size-xs);
+    font-style: normal;
+    font-weight: 400;
+    left: 433px;
+    line-height: normal;
+    text-align: center;
+    top: 268px;
+    width: 167px;
+  }
+  
+  .frame-18 .text_label-fPfqRm {
+    color: #5f0975;
+    font-family: var(--font-family-polin-a-semibold);
+    font-size: var(--font-size-xs);
+    font-style: normal;
+    font-weight: 400;
+    left: 36px;
+    line-height: normal;
+    text-align: center;
+    top: 268px;
+    width: 167px;
+  }
+  
+  .frame-18 .group-6-rU2rt8 {
+    background-color: transparent;
+    height: 168px;
+    left: 51px;
+    position: absolute;
+    top: 99px;
+    width: 535px;
+  }
+  
+  .frame-18 .link04-1-lPUgFN {
+    background-color: transparent;
+    height: 139px;
+    left: 0px;
+    object-fit: cover;
+    position: absolute;
+    top: 29px;
+    width: 138px;
+  }
+  
+  .frame-18 .link04-3-lPUgFN {
+    background-color: transparent;
+    height: 139px;
+    left: 397px;
+    object-fit: cover;
+    position: absolute;
+    top: 29px;
+    width: 138px;
+  }
+  
+  .frame-18 .link04-2-lPUgFN {
+    background-color: transparent;
+    height: 168px;
+    left: 184px;
+    object-fit: cover;
+    position: absolute;
+    top: 0px;
+    width: 167px;
+  }
+  
+  .frame-18 .x5-2-rU2rt8 {
+    background-color: transparent;
+    height: 63px;
+    left: 289px;
+    mix-blend-mode: normal;
+    position: absolute;
+    top: 151px;
+    width: 60px;
+  }
+  
+  .frame-18 .text_label {
+    background-color: transparent;
+    direction: rtl;
+    height: auto;
+    letter-spacing: 0.00px;
+    position: absolute;
+  }
+  
+  .frame-18 .x {
+    background-color: transparent;
+    direction: rtl;
+    height: auto;
+    letter-spacing: 0.00px;
+    position: absolute;
+  }
+  
+  .frame-18 .x0422 {
+    background-color: transparent;
+    height: auto;
+    letter-spacing: 0.00px;
+    line-height: normal;
+    position: absolute;
+    text-align: left;
+    width: 257px;
+  }
+  </style><div class="frame-18 screen " data-id="1007:118" style="margin-top: 70px;"><div class="rectangle-51-7kVli2" data-id="1009:218"></div><img class="x1853632d-c27c-419d-9ae9-ef8c151659c2-5-7kVli2" data-id="1007:120" src="/frame-18_files/1853632d-c27c-419d-9ae9-ef8c151659c2-5.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/1853632d-c27c-419d-9ae9-ef8c151659c2-5.png" alt="1853632d-c27c-419d-9ae9-ef8c151659c2 5"><img class="rectangle-11-7kVli2" data-id="1007:122" src="/frame-18_files/rectangle-11.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-11.png" alt="Rectangle 11"><div class="x5-7kVli2 leon-regular-normal-white-96px" data-id="1007:124"><span class="span0-J6uY4J leon-regular-normal-white-96px">פרשת וילך</span><span class="span1-J6uY4J">&nbsp;</span><span class="span2-J6uY4J leon-regular-normal-white-96px">חטיבה 5</span></div><h1 class="title-7kVli2" data-id="1007:125">10:29:11</h1><p class="x1825-7kVli2 leon-product-bold-white-45px" data-id="1007:126">כז תמוז תשפ”ה<br>יום שלישי&nbsp;&nbsp;1.8.25</p><p class="x-7kVli2 x leon-product-bold-white-45px" data-id="1016:226">אגרת רבצ”ר - פרשת וילך</p><p class="x-uw3PhT x leon-product-bold-white-45px" data-id="1016:228">אגרת רבצ”ר - פרשת וילך</p><div class="rectangle-17-7kVli2" data-id="1007:127"></div><div class="rectangle-19-7kVli2" data-id="1007:131"></div><div class="rectangle-21-7kVli2" data-id="1007:132"></div><div class="rectangle-18-7kVli2" data-id="1007:133"></div><div class="rectangle-20-7kVli2" data-id="1007:134"></div><div class="rectangle-23-7kVli2" data-id="1007:135"></div><div class="rectangle-24-7kVli2" data-id="1007:136"></div><div class="rectangle-25-7kVli2" data-id="1007:137"></div><div class="rectangle-26-7kVli2" data-id="1007:138"></div><div class="rectangle-27-7kVli2" data-id="1007:139"></div><div class="rectangle-28-7kVli2" data-id="1007:140"></div><div class="rectangle-29-7kVli2" data-id="1007:141"></div><div class="rectangle-30-7kVli2" data-id="1007:142"></div><div class="rectangle-22-7kVli2" data-id="1007:143"></div><img class="mincha-ktana-19-7kVli2" data-id="1007:144" src="/frame-18_files/mincha-ktana-19.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/mincha-ktana-19.svg" alt="mincha Ktana 19"><img class="rectangle-33-7kVli2" data-id="1007:189" src="/frame-18_files/rectangle-33.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-33.svg" alt="Rectangle 33"><img class="rectangle-35-7kVli2" data-id="1007:190" src="/frame-18_files/rectangle-33.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-33.svg" alt="Rectangle 35"><img class="rectangle-34-7kVli2" data-id="1007:191" src="/frame-18_files/rectangle-33.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-33.svg" alt="Rectangle 34"><img class="rectangle-36-7kVli2" data-id="1007:194" src="/frame-18_files/rectangle-36.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-36.svg" alt="Rectangle 36"><img class="rectangle-37-7kVli2" data-id="1007:195" src="/frame-18_files/rectangle-33.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-33.svg" alt="Rectangle 37"><img class="tzut-2-7kVli2" data-id="1007:145" src="/frame-18_files/tzut-2.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/tzut-2.svg" alt="tzut 2"><img class="mincha-ktana-18-7kVli2" data-id="1007:146" src="/frame-18_files/mincha-ktana-18.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/mincha-ktana-18.svg" alt="mincha Ktana 18"><img class="mincha-ktana-16-7kVli2" data-id="1007:147" src="/frame-18_files/mincha-ktana-16.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/mincha-ktana-16.svg" alt="mincha Ktana 16"><img class="mincha-ktana-17-7kVli2" data-id="1007:148" src="/frame-18_files/mincha-ktana-17.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/mincha-ktana-17.svg" alt="mincha Ktana 17"><img class="x5-1-7kVli2" data-id="1007:149" src="/frame-18_files/--------------5-1@2x.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/68bd10768464b4d7f8688955/img/--------------5-1@2x.png" alt="5 1"><div class="text_label-7kVli2 text_label leon-productregular-normal-white-32px" data-id="1007:150">עלות השחר</div><div class="text_label-uw3PhT text_label leon-productregular-normal-white-32px" data-id="1007:158">זריחה</div><div class="text_label-0MVGL4 text_label leon-productregular-normal-white-32px" data-id="1007:166">טלית ותפילין</div><div class="text_label-I2QLxE text_label leon-productregular-normal-white-32px" data-id="1007:167">זריחה</div><div class="text_label-xcJxFm text_label leon-productregular-normal-white-32px" data-id="1007:168">שקיעה</div><div class="text_label-s1cct3 text_label leon-productregular-normal-white-32px" data-id="1007:171">זריחה</div><div class="x0422-7kVli2 x0422 polin-a-normal-black-52px" data-id="1007:173">04:22</div><div class="x0422-uw3PhT x0422 polin-a-normal-black-52px" data-id="1007:176">04:22</div><div class="x0422-0MVGL4 x0422 polin-a-normal-black-52px" data-id="1007:182">04:22</div><div class="x0422-I2QLxE x0422 polin-a-normal-black-52px" data-id="1007:183">04:22</div><div class="x0422-xcJxFm x0422 polin-a-normal-black-52px" data-id="1007:184">04:22</div><div class="x0422-s1cct3 x0422 polin-a-normal-black-52px" data-id="1007:185">04:22</div><img class="rectangle-26-uw3PhT" data-id="1007:187" src="/frame-18_files/rectangle-33.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/rectangle-33.svg" alt="Rectangle 26"><img class="alot-ha-shachar-2-7kVli2" data-id="1007:196" src="/frame-18_files/alot-ha-shachar-2.svg" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/alot-ha-shachar-2.svg" alt="Alot Ha Shachar 2"><div class="rectangle-31-7kVli2" data-id="1014:219"></div><p class="x-0MVGL4 x" data-id="1015:220">ימי הזיכרון והתקומה הלאומיים פורשים לפנינו עולם ערכים קוטבי של טוב ורע, אור וחושך, מוסריות ואנטי-מוסריות. רדיפת אחינו ואחיותינו בשואה יצרה ניגוד חד בין מאפייניו האמיתיים של עם ישראל – עַם שהצורך להרבות עזרה, חסד וצדקה טבוע בעומק נשמתו, לבין האנטישמיות השטנית של הצורר הנאצי. הלוחם העברי לעצמאות ישראל גילה גם הוא גדלות-נפש, כפי שכתב שלום קרניאל ז''ל מגוש עציון: "וְעַתָּה אֲנִי קוֹרֵא אֵלֶיךָ, אֵ-לִי, חַמְּמֵנִי בְּאַחַת מִקַּרְנֶיך לְמַעַן אוּכַל לְהַבְחִין בֵּין אֱמֶת וּבֵין שֶׁקֶר. בֵּין טֹהַר וְטֻמְאָה. בֵּין רָעָה וְטוֹבָה" ('תְּפִלָּה').<br>ההבחנה בין הרצוי והלא רצוי דורשת תבונה ושיקול דעת, כדברי התלמוד הירושלמי: "אם אין דעה – הבדלה מניין?" (מסכת ברכות ה', ב'). יש לכך קשר למעשה בריאת העולם, המתואר בפרשת '</p><p class="x-I2QLxE x" data-id="1015:223">בראשית', שבו הבדיל הקדוש-ברוך-הוא בין אור וחושך, מים ומים, ימי החול והשבת. לא בכדי נאמרת ההבדלה בתפילת ערבית בצאת השבת – עוד לפני ההבדלה על כוס יין – בברכת 'חונֵן הַדָּעַת'. כך נאמר בה: "... וַתַּבְדֵּל ה' אֱלֹקֵינוּ בֵּין קֹדֶש לְחוֹל, בֵּין אוֹר לְחֹשֶׁךְ, בֵּין יִשְׂרָאֵל לָעַמִּים, בֵּין יוֹם <br>הַשְּׁבִיעִי לְשֵׁשֶׁת יְמֵי הַמַּעֲשֶׂה". האדם נדרש לאמץ את יכולת ההבדלה של בוראו, לשלוט במעשיו ולמתוח קו בין האסור והמותר. תזכורת לכך מצויה בפרשתנו, המספרת על מותם של שני בניו של אהרן הכהן – נדב ואביהוא – ביום חנוכת המשכן, אחרי שהקריבו "אֵשׁ זָרָה" שלא נצטוו עליה (ויקרא י', א')<br>אש זרה היא אש שנובעת מהתלהבות-יתר בלתי מרוסנת, וייתכן שאף ממניעים אנוכיים של רצון להתפאר ביכולות עצמיות. רשב"ם כותב: "קודם שיצא האש מפני ה' [לשרוף את הקורבנות</p><p class="x-xcJxFm x" data-id="1015:224"> על המזבח] כבר לקחו [נדב ואביהוא] איש מחתתו להקטיר קטורת לפנים על מזבח הזהב...". מסירות נפש – חשובה. השתוקקות – חשובה. 'הגדלת ראש' – חשובה. אבל הכל צריך להיות במידה. פריצת גבולות מדויקים עלולה להוביל לקנאות מסוכנת. תגובתו האצילית של אהרן, האב השכול, היא מורשת לדורות: "וַיִּדֹּם אַהֲרֹן" (שם, פסוק ג'). הדומייה של אהרן, מתוך איפוק עילאי, יוצרת הזדהות עמוקה ברגעי אובדן. בספר תהילים (צ"ד, ט') נאמר: "הֲנֹטַע אֹזֶן הֲלֹא יִשְׁמָע". רש"י מבאר: "שמא הקדוש-ברוך-הוא, שנטע אוזן, לא ישמע צעקת עַמוֹ ועוֹניוֹ?". אמונת ישראל היא ששוועת עניים וזעקת דלים נשמעת – ואכן אהרן, הכהן הגדול, זכה הודות לשתיקתו שנשמעה לעלות בקודש.</p><img class="x1-7kVli2" data-id="1016:227" src="/frame-18_files/-----------1@2x.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/-----------1@2x.png" alt="1"><img class="x2-7kVli2" data-id="1020:301" src="/frame-18_files/-----------1@2x.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/-----------1@2x.png" alt="2"><div class="group-7-7kVli2" data-id="1093:177"><div class="text_label-rU2rt8 text_label" data-id="1093:178">שמור על קשר</div><div class="text_label-3m85K8 text_label" data-id="1093:179">עדכוני הלכה וכשרות</div><div class="text_label-pwE4xg text_label" data-id="1093:180">אתר הרבנות</div><div class="text_label-CacFW9 text_label" data-id="1093:181">דבר תורה יומי</div><div class="text_label-fPfqRm text_label" data-id="1093:182">ערןץ טיפו”ח לחיילות</div><div class="group-6-rU2rt8" data-id="1093:183"><img class="link04-1-lPUgFN" data-id="1093:184" src="/frame-18_files/link04-1.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/link04-1.png" alt="link04 1"><img class="link04-3-lPUgFN" data-id="1093:185" src="/frame-18_files/link04-1.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/link04-1.png" alt="link04 3"><img class="link04-2-lPUgFN" data-id="1093:186" src="/frame-18_files/link04-1.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/link04-1.png" alt="link04 2"></div><img class="x5-2-rU2rt8" data-id="1093:187" src="/frame-18_files/--------------5-2@2x.png" anima-src="https://cdn.animaapp.com/projects/68bd0f10e2e60227b2021c37/releases/690b85e7d2f72470bf6fcea3/img/--------------5-2@2x.png" alt="5 2"></div></div><script src="/integration2.js"></script></body></html>
