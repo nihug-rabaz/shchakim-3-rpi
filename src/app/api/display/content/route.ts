@@ -53,6 +53,7 @@ export async function GET(req: Request) {
       lastUpdatedAt: new Date().toISOString(),
       boardInfo: {
         name: boardInfo.name,
+        display_name: boardInfo.display_name || boardInfo.displayName || null,
         base_name: boardInfo.base_name,
         base_description: boardInfo.base_description,
         location: boardInfo.location,

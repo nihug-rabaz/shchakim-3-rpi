@@ -8,7 +8,9 @@ class LetterIntegration {
     this.content = null;
     this.zmanimData = null;
     this.clockInterval = null;
+    this.isOnline = navigator.onLine;
     this.init();
+    this.setupOnlineListeners();
   }
 
   async init() {
@@ -17,6 +19,15 @@ class LetterIntegration {
       this.setupLayout();
       await this.loadLocationConfig();
       await this.loadContent();
+      
+      if (this.content?.theme || this.content?.background) {
+        const themePrimary = this.content?.theme?.primaryHex || this.content?.boardInfo?.theme?.primaryHex || this.themeColor;
+        this.updateTheme({ 
+          primaryHex: themePrimary,
+          gradient: this.content?.background?.colors || this.content?.theme?.gradient 
+        });
+      }
+      
       setTimeout(() => {
         if (this.content?.theme || this.content?.background) {
           const themePrimary = this.content?.theme?.primaryHex || this.content?.boardInfo?.theme?.primaryHex || this.themeColor;
@@ -26,6 +37,7 @@ class LetterIntegration {
           });
         }
       }, 200);
+      
       this.setupLiveClock();
       this.setupLiveDate();
       this.updateParasha();
@@ -36,6 +48,49 @@ class LetterIntegration {
       this.setupPeriodicUpdates();
     } catch (error) {
       console.error('Failed to initialize Letter integration:', error);
+    }
+  }
+
+  setupOnlineListeners() {
+    window.addEventListener('online', () => {
+      this.isOnline = true;
+      this.loadContent();
+    });
+    window.addEventListener('offline', () => {
+      this.isOnline = false;
+    });
+  }
+
+  async checkOnline() {
+    if (!navigator.onLine) {
+      this.isOnline = false;
+      return false;
+    }
+    try {
+      const boardId = this.getBoardId();
+      if (!boardId) {
+        this.isOnline = false;
+        return false;
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      try {
+        const response = await fetch(`${this.apiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${Date.now()}`, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        this.isOnline = response.ok;
+        return this.isOnline;
+      } catch (e) {
+        clearTimeout(timeoutId);
+        this.isOnline = false;
+        return false;
+      }
+    } catch {
+      this.isOnline = false;
+      return false;
     }
   }
 
@@ -53,14 +108,46 @@ class LetterIntegration {
   }
 
   async loadLocationConfig() {
+    const configKey = 'shchakim_config';
+    const configTimestampKey = 'shchakim_config_timestamp';
+    
     try {
-      const response = await fetch('/config.json');
-      if (response.ok) {
-        this.config = await response.json();
-        if (this.config.location) {
-          this.latitude = Number(this.config.location.latitude) || 31.7683;
-          let lng = Number(this.config.location.longitude) || -35.2137;
-          this.longitude = -Math.abs(isNaN(lng) ? Number(this.config.location.longitude) : lng);
+      const cachedConfig = localStorage.getItem(configKey);
+      const cachedTimestamp = localStorage.getItem(configTimestampKey);
+      
+      if (cachedConfig && cachedTimestamp) {
+        try {
+          this.config = JSON.parse(cachedConfig);
+          if (this.config.location) {
+            this.latitude = Number(this.config.location.latitude) || 31.7683;
+            let lng = Number(this.config.location.longitude) || -35.2137;
+            this.longitude = -Math.abs(isNaN(lng) ? Number(this.config.location.longitude) : lng);
+          }
+        } catch (e) {
+          console.warn('Failed to parse cached config', e);
+        }
+      }
+      
+      const isOnline = await this.checkOnline();
+      if (isOnline) {
+        try {
+          const response = await fetch('/config.json', {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-store' }
+          });
+          if (response.ok) {
+            this.config = await response.json();
+            localStorage.setItem(configKey, JSON.stringify(this.config));
+            localStorage.setItem(configTimestampKey, Date.now().toString());
+            
+            if (this.config.location) {
+              this.latitude = Number(this.config.location.latitude) || 31.7683;
+              let lng = Number(this.config.location.longitude) || -35.2137;
+              this.longitude = -Math.abs(isNaN(lng) ? Number(this.config.location.longitude) : lng);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load config.json from server', e);
         }
       }
     } catch (e) {
@@ -76,25 +163,65 @@ class LetterIntegration {
         return;
       }
 
-      const ts = Date.now();
-      const response = await fetch(`${this.apiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-store' }
-      });
-      if (!response.ok) throw new Error('Failed to fetch content');
+      const contentKey = `shchakim_content_${boardId}`;
+      const contentTimestampKey = `shchakim_content_timestamp_${boardId}`;
       
-      const data = await response.json();
-      this.content = data;
-      const locObj = data?.boardInfo?.location;
-      if (locObj?.latitude && locObj?.longitude) {
-        this.latitude = Number(locObj.latitude);
-        const lng = Number(locObj.longitude);
-        this.longitude = -Math.abs(isNaN(lng) ? Number(locObj.longitude) : lng);
+      const cachedContent = localStorage.getItem(contentKey);
+      const cachedTimestamp = localStorage.getItem(contentTimestampKey);
+      
+      if (cachedContent) {
+        try {
+          const data = JSON.parse(cachedContent);
+          this.content = data;
+          const locObj = data?.boardInfo?.location;
+          if (locObj?.latitude && locObj?.longitude) {
+            this.latitude = Number(locObj.latitude);
+            const lng = Number(locObj.longitude);
+            this.longitude = -Math.abs(isNaN(lng) ? Number(locObj.longitude) : lng);
+          }
+          const themePrimary = data?.theme?.primaryHex || data?.boardInfo?.theme?.primaryHex || '#054a36';
+          this.themeColor = themePrimary;
+          this.updateTheme({ primaryHex: themePrimary, gradient: (data?.background?.colors || data?.theme?.gradient) });
+          this.updateParasha();
+          this.updateOrganization();
+          this.updateLetter();
+        } catch (e) {
+          console.warn('Failed to parse cached content', e);
+        }
       }
-      const themePrimary = data?.theme?.primaryHex || data?.boardInfo?.theme?.primaryHex || '#054a36';
-      this.themeColor = themePrimary;
       
-      this.updateTheme({ primaryHex: themePrimary, gradient: (data?.background?.colors || data?.theme?.gradient) });
+      const isOnline = await this.checkOnline();
+      if (isOnline) {
+        try {
+          const ts = Date.now();
+          const response = await fetch(`${this.apiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-store' },
+            signal: AbortSignal.timeout(10000)
+          });
+          if (response.ok) {
+            const data = await response.json();
+            this.content = data;
+            localStorage.setItem(contentKey, JSON.stringify(data));
+            localStorage.setItem(contentTimestampKey, Date.now().toString());
+            
+            const locObj = data?.boardInfo?.location;
+            if (locObj?.latitude && locObj?.longitude) {
+              this.latitude = Number(locObj.latitude);
+              const lng = Number(locObj.longitude);
+              this.longitude = -Math.abs(isNaN(lng) ? Number(locObj.longitude) : lng);
+            }
+            const themePrimary = data?.theme?.primaryHex || data?.boardInfo?.theme?.primaryHex || '#054a36';
+            this.themeColor = themePrimary;
+            this.updateTheme({ primaryHex: themePrimary, gradient: (data?.background?.colors || data?.theme?.gradient) });
+            this.updateParasha();
+            this.updateOrganization();
+            this.updateLetter();
+          }
+        } catch (error) {
+          console.warn('Error loading content from server:', error);
+        }
+      }
       
       await this.fetchZmanim();
     } catch (error) {
@@ -129,30 +256,43 @@ class LetterIntegration {
       if (cached) {
         try {
           this.zmanimData = JSON.parse(cached);
+          this.updateDailyTimes();
+          this.updateParasha();
           return;
         } catch (e) {
           console.warn('Failed to parse cached zmanim', e);
         }
       }
 
-      const response = await fetch(`${this.apiBase}/api/zmanim`, {
-        method: 'POST',
-        headers: { 'accept': 'application/json', 'content-type': 'application/json' },
-        body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: dateStr })
-      });
+      const isOnline = await this.checkOnline();
+      if (isOnline) {
+        try {
+          const response = await fetch(`${this.apiBase}/api/zmanim`, {
+            method: 'POST',
+            headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+            body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: dateStr }),
+            signal: AbortSignal.timeout(10000)
+          });
 
-      if (response.ok) {
-        const data = await response.json();
-        this.zmanimData = data;
-        localStorage.setItem(zmanimKey, JSON.stringify(data));
-        
-        const nextMidnight = new Date(now);
-        nextMidnight.setDate(now.getDate() + 1);
-        nextMidnight.setHours(0, 0, 0, 0);
-        const msUntilMidnight = nextMidnight.getTime() - now.getTime();
-        setTimeout(() => {
-          localStorage.removeItem(zmanimKey);
-        }, msUntilMidnight);
+          if (response.ok) {
+            const data = await response.json();
+            this.zmanimData = data;
+            localStorage.setItem(zmanimKey, JSON.stringify(data));
+            
+            const nextMidnight = new Date(now);
+            nextMidnight.setDate(now.getDate() + 1);
+            nextMidnight.setHours(0, 0, 0, 0);
+            const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+            setTimeout(() => {
+              localStorage.removeItem(zmanimKey);
+            }, msUntilMidnight);
+            
+            this.updateDailyTimes();
+            this.updateParasha();
+          }
+        } catch (error) {
+          console.warn('Error fetching zmanim from server:', error);
+        }
       }
     } catch (error) {
       console.error('Error fetching zmanim:', error);
@@ -224,43 +364,47 @@ class LetterIntegration {
       return `${day} ${hebrewMonths[monthIndex]} ${year}`;
     }
     
-    try {
-      const dateStr = date.toISOString().slice(0, 10);
-      const response = await fetch(`${this.apiBase}/api/zmanim`, {
-        method: 'POST',
-        headers: { 'accept': 'application/json', 'content-type': 'application/json' },
-        body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: dateStr })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.hebrew?.formatted) {
-          return data.hebrew.formatted;
-        }
-        if (data.hebrew?.day && data.hebrew?.month && data.hebrew?.year) {
-          const hebrewMonths = [
-            'תשרי', 'חשוון', 'כסלו', 'טבת', 'שבט', 'אדר',
-            'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'
-          ];
-          const day = data.hebrew.day;
-          const monthIndex = data.hebrew.month - 1;
-          const year = data.hebrew.year;
-          const yearStr = year.toString();
-          
-          if (yearStr.length === 4) {
-            const lastDigit = yearStr.slice(-1);
-            const secondLastDigit = yearStr.slice(-2, -1);
-            if (secondLastDigit === '0') {
-              return `${day} ${hebrewMonths[monthIndex]} תש${lastDigit}"ה`;
-            } else {
-              return `${day} ${hebrewMonths[monthIndex]} תש${secondLastDigit}${lastDigit}"ה`;
-            }
+    const isOnline = await this.checkOnline();
+    if (isOnline) {
+      try {
+        const dateStr = date.toISOString().slice(0, 10);
+        const response = await fetch(`${this.apiBase}/api/zmanim`, {
+          method: 'POST',
+          headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+          body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: dateStr }),
+          signal: AbortSignal.timeout(10000)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.hebrew?.formatted) {
+            return data.hebrew.formatted;
           }
-          return `${day} ${hebrewMonths[monthIndex]} ${year}`;
+          if (data.hebrew?.day && data.hebrew?.month && data.hebrew?.year) {
+            const hebrewMonths = [
+              'תשרי', 'חשוון', 'כסלו', 'טבת', 'שבט', 'אדר',
+              'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'
+            ];
+            const day = data.hebrew.day;
+            const monthIndex = data.hebrew.month - 1;
+            const year = data.hebrew.year;
+            const yearStr = year.toString();
+            
+            if (yearStr.length === 4) {
+              const lastDigit = yearStr.slice(-1);
+              const secondLastDigit = yearStr.slice(-2, -1);
+              if (secondLastDigit === '0') {
+                return `${day} ${hebrewMonths[monthIndex]} תש${lastDigit}"ה`;
+              } else {
+                return `${day} ${hebrewMonths[monthIndex]} תש${secondLastDigit}${lastDigit}"ה`;
+              }
+            }
+            return `${day} ${hebrewMonths[monthIndex]} ${year}`;
+          }
         }
+      } catch (e) {
+        console.warn('Failed to fetch Hebrew date', e);
       }
-    } catch (e) {
-      console.warn('Failed to fetch Hebrew date', e);
     }
     
     return 'טעינה...';
@@ -293,16 +437,23 @@ class LetterIntegration {
 
   updateOrganization() {
     const orgElement = document.querySelector('div[data-id="1007:124"] .span2-J6uY4J');
-    if (orgElement && this.config?.organization?.name) {
-      orgElement.textContent = this.config.organization.name;
-    } else if (orgElement && this.content?.boardInfo?.base_name) {
-      orgElement.textContent = this.content.boardInfo.base_name;
+    if (orgElement) {
+      if (this.content?.boardInfo?.display_name) {
+        orgElement.textContent = this.content.boardInfo.display_name;
+      } else if (this.content?.boardInfo?.base_name) {
+        orgElement.textContent = this.content.boardInfo.base_name;
+      } else if (this.config?.organization?.name) {
+        orgElement.textContent = this.config.organization.name;
+      }
     }
   }
 
   updateLetter() {
     const titleElements = document.querySelectorAll('p.x-7kVli2[data-id="1016:226"], p.x-uw3PhT[data-id="1016:228"]');
-    const contentElements = document.querySelectorAll('p.x-0MVGL4[data-id="1015:220"], p.x-I2QLxE[data-id="1015:223"], p.x-xcJxFm[data-id="1015:224"]');
+    let contentElements = document.querySelectorAll('p[data-id^="1015:"]');
+    if (contentElements.length === 0) {
+      contentElements = document.querySelectorAll('p.x-0MVGL4[data-id="1015:220"], p.x-I2QLxE[data-id="1015:223"], p.x-xcJxFm[data-id="1015:224"]');
+    }
     const signatureImg = document.querySelector('img.x1-7kVli2[data-id="1016:227"]');
     
     if (this.content?.letter) {
@@ -319,7 +470,6 @@ class LetterIntegration {
         contentParts = this.content.letter.content.split('\n\n');
       }
       
-      const lastContentElement = contentElements[contentElements.length - 1];
       const signatureText = 'תא"ל הרב איל קרים הרב הראשי לצה"ל';
       
       if (contentParts.length > 0) {
@@ -331,9 +481,59 @@ class LetterIntegration {
         contentParts.push('בהוקרה רבה,');
       }
       
+      if (contentElements.length > 0 && contentParts.length > contentElements.length) {
+        const firstElement = contentElements[0];
+        const lastOriginalElement = contentElements[contentElements.length - 1];
+        const container = firstElement.parentElement;
+        let insertBeforeElement = signatureImg;
+        
+        if (lastOriginalElement && lastOriginalElement.nextSibling) {
+          insertBeforeElement = lastOriginalElement.nextSibling;
+        }
+        
+        const lastComputedStyle = window.getComputedStyle(lastOriginalElement);
+        const originalClasses = Array.from(lastOriginalElement.classList);
+        
+        for (let i = contentElements.length; i < contentParts.length; i++) {
+          const newElement = lastOriginalElement.cloneNode(true);
+          newElement.textContent = '';
+          
+          originalClasses.forEach(cls => {
+            newElement.classList.add(cls);
+          });
+          
+          const baseId = 220 + i;
+          newElement.setAttribute('data-id', `1015:${baseId}`);
+          
+          const stylesToCopy = ['position', 'left', 'top', 'width', 'height', 'color', 'fontFamily', 'fontSize', 'fontStyle', 'fontWeight', 'lineHeight', 'textAlign', 'display', 'margin', 'padding', 'background', 'backgroundColor', 'border', 'borderRadius'];
+          stylesToCopy.forEach(prop => {
+            const value = lastComputedStyle.getPropertyValue(prop);
+            if (value && value !== 'none' && value !== 'rgba(0, 0, 0, 0)') {
+              newElement.style.setProperty(prop, value);
+            }
+          });
+          
+          newElement.style.background = 'transparent';
+          newElement.style.backgroundColor = 'transparent';
+          
+          if (container) {
+            if (insertBeforeElement) {
+              container.insertBefore(newElement, insertBeforeElement);
+            } else {
+              container.appendChild(newElement);
+            }
+            insertBeforeElement = newElement;
+          }
+        }
+        
+        contentElements = document.querySelectorAll('p[data-id^="1015:"]');
+      }
+      
       contentElements.forEach((el, idx) => {
         if (idx < contentParts.length) {
           el.textContent = contentParts[idx];
+        } else {
+          el.textContent = '';
         }
       });
       
@@ -491,12 +691,18 @@ class LetterIntegration {
     if (frame) {
       frame.style.backgroundImage = gradientCss;
       frame.style.backgroundColor = '';
+      frame.style.backgroundSize = 'cover';
+      frame.style.backgroundPosition = 'center';
+      frame.style.backgroundRepeat = 'no-repeat';
     }
     
     const screen = document.querySelector('.screen');
     if (screen) {
       screen.style.backgroundImage = gradientCss;
       screen.style.backgroundColor = '';
+      screen.style.backgroundSize = 'cover';
+      screen.style.backgroundPosition = 'center';
+      screen.style.backgroundRepeat = 'no-repeat';
     }
     
     const rectangle51 = document.querySelector('.rectangle-51-7kVli2');
@@ -504,7 +710,21 @@ class LetterIntegration {
       rectangle51.style.backgroundImage = gradientCss;
       rectangle51.style.background = gradientCss;
       rectangle51.style.backgroundColor = 'transparent';
+      rectangle51.style.backgroundSize = 'cover';
+      rectangle51.style.backgroundPosition = 'center';
+      rectangle51.style.backgroundRepeat = 'no-repeat';
     }
+    
+    const allRectangles = document.querySelectorAll('.rectangle-51-7kVli2, .frame-18, .screen');
+    allRectangles.forEach(el => {
+      if (el) {
+        el.style.backgroundImage = gradientCss;
+        el.style.backgroundColor = '';
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.style.backgroundRepeat = 'no-repeat';
+      }
+    });
   }
 
   calculateScale() {
@@ -662,11 +882,14 @@ class LetterIntegration {
 
   setupPeriodicUpdates() {
     setInterval(async () => {
-      await this.loadContent();
-      this.updateParasha();
-      this.updateOrganization();
-      this.updateLetter();
-      this.updateDailyTimes();
+      const isOnline = await this.checkOnline();
+      if (isOnline) {
+        await this.loadContent();
+        this.updateParasha();
+        this.updateOrganization();
+        this.updateLetter();
+        this.updateDailyTimes();
+      }
     }, 60000);
   }
 }

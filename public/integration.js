@@ -7,6 +7,7 @@ class ShchakimIntegration {
     this.updateInterval = 60000;
     this.clockInterval = null;
     this.contentInterval = null;
+    this.boardInfo = null;
     this.init();
   }
 
@@ -28,6 +29,7 @@ class ShchakimIntegration {
       this.disableScrolling();
       this.setupLayout();
       await this.loadLocationConfig();
+      await this.loadBoardInfo();
       await this.loadContent();
       this.setupPeriodicUpdates();
       this.setupThemeIntegration();
@@ -335,13 +337,51 @@ class ShchakimIntegration {
     block.textContent = `פרשת ${parashaName}`;
   }
 
+  async loadBoardInfo() {
+    try {
+      const boardId = this.getBoardId();
+      if (!boardId) {
+        console.warn('No board ID available, cannot load board info');
+        return;
+      }
+
+      const response = await fetch(`${this.apiBase}/api/board-info?id=${encodeURIComponent(boardId)}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-store' }
+      });
+      
+      if (response.ok) {
+        this.boardInfo = await response.json();
+      }
+    } catch (error) {
+      console.warn('Failed to load board info:', error);
+    }
+  }
+
   updateOrganization() {
-    const orgElement = document.querySelector('.span2-1CVtT0');
-    if (orgElement && this.config?.organization?.name) {
-      orgElement.textContent = this.config.organization.name;
-    } else if (orgElement) {
-      // Default fallback
-      orgElement.textContent = 'מטה הרבנות הצבאית';
+    const orgElement = document.querySelector('body > div.container-center-horizontal > div > div.x5-TP2yIe.leon-regular-normal-white-96px > span.span2-1CVtT0.leon-regular-normal-white-96px') || document.querySelector('.span2-1CVtT0');
+    if (orgElement) {
+      const displayName = this.boardInfo?.display_name;
+      const baseName = this.boardInfo?.base_name;
+      const configName = this.config?.organization?.name;
+      
+      console.log('[ORG] display_name:', displayName, 'base_name:', baseName, 'config:', configName);
+      
+      if (displayName) {
+        orgElement.textContent = displayName.trim();
+        console.log('[ORG] Set to display_name:', displayName);
+      } else if (baseName) {
+        orgElement.textContent = baseName;
+        console.log('[ORG] Set to base_name:', baseName);
+      } else if (configName) {
+        orgElement.textContent = configName;
+        console.log('[ORG] Set to config name:', configName);
+      } else {
+        orgElement.textContent = 'מטה הרבנות הצבאית';
+        console.log('[ORG] Set to default');
+      }
+    } else {
+      console.warn('[ORG] Element not found');
     }
   }
 
@@ -414,6 +454,8 @@ class ShchakimIntegration {
       
       await this.updatePrayerTimes(data.prayers);
       this.updateTheme({ primaryHex: themePrimary, gradient: (data?.background?.colors || data?.theme?.gradient) });
+      await this.loadBoardInfo();
+      this.updateOrganization();
       
       const contentChanged = !oldContent || 
         JSON.stringify(oldContent?.updates) !== JSON.stringify(data?.updates) ||
@@ -1647,7 +1689,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           return fromOk && toOk;
         };
         const active = updates.filter(isActive);
-        const mkUpdateSlide = (title, content) => {
+        const mkUpdateSlide = (type, title, content) => {
           const slide = document.createElement('div');
           slide.className = 'shchakim-slide';
           slide.style.position = 'absolute';
@@ -1672,7 +1714,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           wrap.style.textAlign = 'center';
 
           const heading = document.createElement('div');
-          heading.textContent = 'עדכון';
+          heading.textContent = type || 'עדכון';
           heading.style.fontSize = '64px';
           heading.style.fontWeight = '800';
           heading.style.letterSpacing = '0.5px';
@@ -1718,7 +1760,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           slides.push(slide);
         };
 
-        active.forEach((u) => mkUpdateSlide(u.title, u.content));
+        active.forEach((u) => mkUpdateSlide(u.type, u.title, u.content));
       } catch {}
 
       // If content API includes images, replace backgrounds
@@ -2208,8 +2250,11 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
       if (active.length === updateSlides.length) {
         active.forEach((update, index) => {
           if (updateSlides[index]) {
+            const wrap = updateSlides[index].querySelector('div[style*="flex-direction: column"]');
+            const headingEl = wrap ? wrap.querySelector('div:first-child') : null;
             const titleEl = updateSlides[index].querySelector('.update-card > div:first-child');
             const contentEl = updateSlides[index].querySelector('.update-card > div:last-child');
+            if (headingEl) headingEl.textContent = update.type || 'עדכון';
             if (titleEl) titleEl.textContent = update.title || 'עדכון';
             if (contentEl) contentEl.textContent = (update.content || '').toString();
           }
@@ -2221,7 +2266,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           }
         });
         
-        const mkUpdateSlide = (title, content) => {
+        const mkUpdateSlide = (type, title, content) => {
           const slide = document.createElement('div');
           slide.className = 'shchakim-slide';
           slide.style.position = 'absolute';
@@ -2246,7 +2291,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           wrap.style.textAlign = 'center';
 
           const heading = document.createElement('div');
-          heading.textContent = 'עדכון';
+          heading.textContent = type || 'עדכון';
           heading.style.fontSize = '64px';
           heading.style.fontWeight = '800';
           heading.style.letterSpacing = '0.5px';
@@ -2291,7 +2336,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           slider.appendChild(slide);
         };
 
-        active.forEach((u) => mkUpdateSlide(u.title, u.content));
+        active.forEach((u) => mkUpdateSlide(u.type, u.title, u.content));
       }
     } catch (error) {
       console.error('[SLIDER] Error updating slider content:', error);

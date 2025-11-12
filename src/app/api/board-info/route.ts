@@ -4,6 +4,8 @@ type BoardInfo = {
   linked: boolean;
   user_id?: number;
   name?: string;
+  display_name?: string;
+  displayName?: string;
   base_name?: string;
   base_description?: string | null;
   board_bid?: string;
