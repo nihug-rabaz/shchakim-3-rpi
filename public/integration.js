@@ -1689,7 +1689,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           return fromOk && toOk;
         };
         const active = updates.filter(isActive);
-        const mkUpdateSlide = (type, title, content) => {
+        const mkUpdateSlide = (type, title, content, imageUrl) => {
           const slide = document.createElement('div');
           slide.className = 'shchakim-slide';
           slide.style.position = 'absolute';
@@ -1734,33 +1734,58 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           card.style.textAlign = 'right';
           card.style.position = 'relative';
 
-          const t = document.createElement('div');
-          t.textContent = title || 'עדכון';
-          t.style.fontSize = '40px';
-          t.style.fontWeight = '700';
-          t.style.color = '#ffffff';
-          t.style.margin = '0 0 12px 0';
-          t.style.textAlign = 'center';
-          t.style.borderBottom = '1px solid rgba(255,255,255,0.6)';
-          t.style.paddingBottom = '8px';
+          if (imageUrl) {
+            // אם יש תמונה, מציגים רק את התמונה על כל המרובע (ללא כותרת וללא טקסט)
+            card.style.padding = '0';
+            card.style.width = '100%';
+            card.style.height = '100%';
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '12px';
+            img.style.display = 'block';
+            card.appendChild(img);
+            wrap.appendChild(card);
+            // לא מוסיפים את heading כשיש תמונה
+          } else {
+            // אם אין תמונה, מציגים כותרת וטקסט
+            const t = document.createElement('div');
+            t.textContent = title || 'עדכון';
+            t.style.fontSize = '40px';
+            t.style.fontWeight = '700';
+            t.style.color = '#ffffff';
+            t.style.margin = '0 0 12px 0';
+            t.style.textAlign = 'center';
+            t.style.borderBottom = '1px solid rgba(255,255,255,0.6)';
+            t.style.paddingBottom = '8px';
 
-          const s = document.createElement('div');
-          s.textContent = (content || '').toString();
-          s.style.fontSize = '26px';
-          s.style.lineHeight = '1.8';
-          s.style.color = 'rgba(255,255,245,0.95)';
-          s.style.whiteSpace = 'pre-wrap';
+            const s = document.createElement('div');
+            s.textContent = (content || '').toString();
+            s.style.fontSize = '26px';
+            s.style.lineHeight = '1.8';
+            s.style.color = 'rgba(255,255,245,0.95)';
+            s.style.whiteSpace = 'pre-wrap';
 
-          card.appendChild(t);
-          card.appendChild(s);
-          wrap.appendChild(heading);
-          wrap.appendChild(card);
+            card.appendChild(t);
+            card.appendChild(s);
+            wrap.appendChild(heading);
+            wrap.appendChild(card);
+          }
           slide.appendChild(wrap);
           slider.appendChild(slide);
           slides.push(slide);
         };
 
-        active.forEach((u) => mkUpdateSlide(u.type, u.title, u.content));
+        active.forEach((u) => {
+          // בדוק אם content הוא תמונה base64
+          const content = u.content || '';
+          const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
+          const imageUrl = u.image || u.imageUrl || (isImageDataUri ? content.trim() : null);
+          const displayContent = isImageDataUri ? '' : content;
+          mkUpdateSlide(u.type, u.title, displayContent, imageUrl);
+        });
       } catch {}
 
       // If content API includes images, replace backgrounds
@@ -2252,11 +2277,71 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           if (updateSlides[index]) {
             const wrap = updateSlides[index].querySelector('div[style*="flex-direction: column"]');
             const headingEl = wrap ? wrap.querySelector('div:first-child') : null;
-            const titleEl = updateSlides[index].querySelector('.update-card > div:first-child');
-            const contentEl = updateSlides[index].querySelector('.update-card > div:last-child');
-            if (headingEl) headingEl.textContent = update.type || 'עדכון';
-            if (titleEl) titleEl.textContent = update.title || 'עדכון';
-            if (contentEl) contentEl.textContent = (update.content || '').toString();
+            const card = updateSlides[index].querySelector('.update-card');
+            const titleEl = card ? card.querySelector('div:first-child') : null;
+            const contentEl = card ? card.querySelector('div:last-child') : null;
+            const existingImg = card ? card.querySelector('img') : null;
+            // בדוק אם content הוא תמונה base64
+            const content = update.content || '';
+            const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
+            const imageUrl = update.image || update.imageUrl || (isImageDataUri ? content.trim() : null);
+            
+            if (imageUrl && card) {
+              // אם יש תמונה, מציגים רק את התמונה על כל המרובע (ללא כותרת וללא טקסט)
+              card.style.padding = '0';
+              card.style.width = '100%';
+              card.style.height = '100%';
+              
+              // הסתר כותרת עליונה, כותרת וטקסט
+              if (headingEl) headingEl.style.display = 'none';
+              if (titleEl) titleEl.style.display = 'none';
+              if (contentEl) contentEl.style.display = 'none';
+              
+              if (existingImg) {
+                existingImg.src = imageUrl;
+                existingImg.style.width = '100%';
+                existingImg.style.height = '100%';
+                existingImg.style.objectFit = 'contain';
+                existingImg.style.marginBottom = '0';
+              } else {
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.style.borderRadius = '12px';
+                img.style.display = 'block';
+                card.innerHTML = '';
+                card.appendChild(img);
+              }
+            } else {
+              // אם אין תמונה, מציגים כותרת וטקסט
+              if (headingEl) {
+                headingEl.textContent = update.type || 'עדכון';
+                headingEl.style.display = 'block';
+              }
+              if (titleEl) {
+                titleEl.textContent = update.title || 'עדכון';
+                titleEl.style.display = 'block';
+              }
+              if (contentEl) {
+                // אם content הוא תמונה, לא מציגים אותו כטקסט
+                const content = update.content || '';
+                const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
+                if (!isImageDataUri) {
+                  contentEl.textContent = content.toString();
+                  contentEl.style.display = 'block';
+                } else {
+                  contentEl.style.display = 'none';
+                }
+              }
+              if (existingImg) {
+                existingImg.remove();
+              }
+              card.style.padding = '28px 34px 22px';
+              card.style.width = 'auto';
+              card.style.height = 'auto';
+            }
           }
         });
       } else {
@@ -2266,7 +2351,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           }
         });
         
-        const mkUpdateSlide = (type, title, content) => {
+        const mkUpdateSlide = (type, title, content, imageUrl) => {
           const slide = document.createElement('div');
           slide.className = 'shchakim-slide';
           slide.style.position = 'absolute';
@@ -2311,32 +2396,57 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           card.style.textAlign = 'right';
           card.style.position = 'relative';
 
-          const t = document.createElement('div');
-          t.textContent = title || 'עדכון';
-          t.style.fontSize = '40px';
-          t.style.fontWeight = '700';
-          t.style.color = '#ffffff';
-          t.style.margin = '0 0 12px 0';
-          t.style.textAlign = 'center';
-          t.style.borderBottom = '1px solid rgba(255,255,255,0.6)';
-          t.style.paddingBottom = '8px';
+          if (imageUrl) {
+            // אם יש תמונה, מציגים רק את התמונה על כל המרובע (ללא כותרת וללא טקסט)
+            card.style.padding = '0';
+            card.style.width = '100%';
+            card.style.height = '100%';
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '12px';
+            img.style.display = 'block';
+            card.appendChild(img);
+            wrap.appendChild(card);
+            // לא מוסיפים את heading כשיש תמונה
+          } else {
+            // אם אין תמונה, מציגים כותרת וטקסט
+            const t = document.createElement('div');
+            t.textContent = title || 'עדכון';
+            t.style.fontSize = '40px';
+            t.style.fontWeight = '700';
+            t.style.color = '#ffffff';
+            t.style.margin = '0 0 12px 0';
+            t.style.textAlign = 'center';
+            t.style.borderBottom = '1px solid rgba(255,255,255,0.6)';
+            t.style.paddingBottom = '8px';
 
-          const s = document.createElement('div');
-          s.textContent = (content || '').toString();
-          s.style.fontSize = '26px';
-          s.style.lineHeight = '1.8';
-          s.style.color = 'rgba(255,255,245,0.95)';
-          s.style.whiteSpace = 'pre-wrap';
+            const s = document.createElement('div');
+            s.textContent = (content || '').toString();
+            s.style.fontSize = '26px';
+            s.style.lineHeight = '1.8';
+            s.style.color = 'rgba(255,255,245,0.95)';
+            s.style.whiteSpace = 'pre-wrap';
 
-          card.appendChild(t);
-          card.appendChild(s);
-          wrap.appendChild(heading);
-          wrap.appendChild(card);
+            card.appendChild(t);
+            card.appendChild(s);
+            wrap.appendChild(heading);
+            wrap.appendChild(card);
+          }
           slide.appendChild(wrap);
           slider.appendChild(slide);
         };
 
-        active.forEach((u) => mkUpdateSlide(u.type, u.title, u.content));
+        active.forEach((u) => {
+          // בדוק אם content הוא תמונה base64
+          const content = u.content || '';
+          const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
+          const imageUrl = u.image || u.imageUrl || (isImageDataUri ? content.trim() : null);
+          const displayContent = isImageDataUri ? '' : content;
+          mkUpdateSlide(u.type, u.title, displayContent, imageUrl);
+        });
       }
     } catch (error) {
       console.error('[SLIDER] Error updating slider content:', error);
