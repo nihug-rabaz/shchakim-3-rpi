@@ -8,7 +8,100 @@ class ShchakimIntegration {
     this.clockInterval = null;
     this.contentInterval = null;
     this.boardInfo = null;
+    this.imageCache = new Map();
     this.init();
+  }
+
+  getImageCacheKey(imageUrl, updateId) {
+    if (!imageUrl || typeof imageUrl !== 'string') return null;
+    let hash = 0;
+    for (let i = 0; i < imageUrl.length; i++) {
+      const char = imageUrl.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return `shchakim_img_${updateId}_${Math.abs(hash)}`;
+  }
+
+  async cacheImageFromUrl(imageUrl, updateId) {
+    if (!imageUrl || typeof imageUrl !== 'string') return null;
+    
+    const cacheKey = this.getImageCacheKey(imageUrl, updateId);
+    if (!cacheKey) return imageUrl;
+    
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        this.imageCache.set(cacheKey, cached);
+        return cached;
+      }
+      
+      if (imageUrl.startsWith('data:image/')) {
+        try {
+          localStorage.setItem(cacheKey, imageUrl);
+          this.imageCache.set(cacheKey, imageUrl);
+          return imageUrl;
+        } catch (e) {
+          return imageUrl;
+        }
+      }
+      
+      const response = await fetch(imageUrl, { cache: 'no-store' });
+      if (!response.ok) return imageUrl;
+      
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      return new Promise((resolve) => {
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          if (dataUrl) {
+            try {
+              localStorage.setItem(cacheKey, dataUrl);
+              this.imageCache.set(cacheKey, dataUrl);
+              resolve(dataUrl);
+            } catch (e) {
+              if (e.name === 'QuotaExceededError') {
+                console.warn('[IMAGE] localStorage quota exceeded, using URL directly');
+                resolve(imageUrl);
+              } else {
+                resolve(imageUrl);
+              }
+            }
+          } else {
+            resolve(imageUrl);
+          }
+        };
+        reader.onerror = () => resolve(imageUrl);
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.warn('[IMAGE] Failed to cache image:', error);
+      return imageUrl;
+    }
+  }
+
+  getCachedImage(imageUrl, updateId) {
+    if (!imageUrl || typeof imageUrl !== 'string') return null;
+    
+    const cacheKey = this.getImageCacheKey(imageUrl, updateId);
+    if (!cacheKey) return null;
+    
+    if (this.imageCache.has(cacheKey)) {
+      return this.imageCache.get(cacheKey);
+    }
+    
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        this.imageCache.set(cacheKey, cached);
+        return cached;
+      }
+    } catch (e) {
+      console.warn('[IMAGE] Failed to read from localStorage:', e);
+    }
+    
+    return null;
   }
 
   async init() {
@@ -568,16 +661,15 @@ class ShchakimIntegration {
       return null;
     };
 
-    if (weekdayNeedsZmanim) {
-      const dateStr = now.toISOString().slice(0, 10);
-      weekdayZmanimData = await fetchZmanim(dateStr, false);
-      if (weekdayZmanimData) {
-        await this.updateDailyTimes(weekdayZmanimData);
-      }
+    const dateStr = now.toISOString().slice(0, 10);
+    weekdayZmanimData = await fetchZmanim(dateStr, false);
+    if (weekdayZmanimData) {
+      await this.updateDailyTimes(weekdayZmanimData);
     }
     
-    if (shabbatNeedsZmanim) {
-      shabbatZmanimData = await fetchZmanim(shabbatDateStr, true);
+    shabbatZmanimData = await fetchZmanim(shabbatDateStr, true);
+    if (shabbatZmanimData) {
+      await this.updateDailyTimes(shabbatZmanimData, true);
     }
 
     const findAllPrayerElements = (forShabbat = false) => {
@@ -1045,10 +1137,11 @@ class ShchakimIntegration {
     }
   }
 
-  async updateDailyTimes(zmanimData) {
-    // Update daily times slots from zmanimData
+  async updateDailyTimes(zmanimData, forShabbat = false) {
+    if (!zmanimData) return;
+    
     try {
-      console.log(`[DAILY] Using location lat=${this.latitude}, lng=${this.longitude}`);
+      console.log(`[DAILY] Using location lat=${this.latitude}, lng=${this.longitude}, forShabbat=${forShabbat}`);
       try { console.log(`[DAILY] Times keys:`, Object.keys(zmanimData?.times || {})); } catch {}
       const dailyMappings = [
         { base: 'sunrise', title: 'זריחה', ids: ['1:75'] },
@@ -1111,114 +1204,99 @@ class ShchakimIntegration {
         }
       });
 
-      // Also set Knisat Shabbat (upcoming Friday) at data-id 1:76 using kenisatShabbat22/30/40
-      try {
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const nextFriday = new Date(now);
-        const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
-        nextFriday.setDate(now.getDate() + daysUntilFriday);
-        nextFriday.setHours(0, 0, 0, 0);
-        const shabbatDateStr = nextFriday.toISOString().slice(0, 10);
-
-        const resp = await fetch(`${this.apiBase}/api/zmanim`, {
-          method: 'POST',
-          headers: { 'accept': 'application/json', 'content-type': 'application/json' },
-          body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: shabbatDateStr })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          const times = data?.times || {};
-          const key = ['kenisatShabbat22','kenisatShabbat30','kenisatShabbat40'].find(k => times[k]);
-          const val = key ? times[key] : null;
-          const hhmm = toHHMM(val);
-          const el = document.querySelector('[data-id="1:76"]');
-          if (el && hhmm !== '--:--') {
-            el.textContent = hhmm;
-            el.innerText = hhmm;
-            el.innerHTML = hhmm;
-            el.setAttribute('data-daily-slot', 'daily-kenisatShabbat');
-            console.log(`[DAILY] Updated kenisatShabbat (${key}) at 1:76 -> ${hhmm} (for ${shabbatDateStr})`);
-          }
-
-          const labelKnisat = document.querySelector('[data-id="1:59"]');
-          if (labelKnisat) {
-            labelKnisat.textContent = 'כניסת שבת';
-            labelKnisat.innerText = 'כניסת שבת';
-            labelKnisat.innerHTML = 'כניסת שבת';
-            labelKnisat.setAttribute('data-daily-slot', 'daily-kenisatShabbat');
-            console.log('[DAILY] Updated label at 1:59 -> כניסת שבת');
-          }
-
-          const yetziat = times['yetziatShabbat'] || null;
-          const yetziatHHMM = toHHMM(yetziat);
-          const elYetziat = document.querySelector('[data-id="1:73"]');
-          if (elYetziat && yetziatHHMM !== '--:--') {
-            elYetziat.textContent = yetziatHHMM;
-            elYetziat.innerText = yetziatHHMM;
-            elYetziat.innerHTML = yetziatHHMM;
-            elYetziat.setAttribute('data-daily-slot', 'daily-yetziatShabbat');
-            console.log(`[DAILY] Updated yetziatShabbat at 1:73 -> ${yetziatHHMM}`);
-          }
-
-          try {
-            const nextShabbat = new Date(nextFriday);
-            nextShabbat.setDate(nextFriday.getDate() + 1); // Saturday
-            const shabbatDayStr = nextShabbat.toISOString().slice(0, 10);
-            const respSat = await fetch(`${this.apiBase}/api/zmanim`, {
-              method: 'POST',
-              headers: { 'accept': 'application/json', 'content-type': 'application/json' },
-              body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: shabbatDayStr })
-            });
-            if (respSat.ok) {
-              const dataSat = await respSat.json();
-              const timesSat = dataSat?.times || {};
-              let shkiyaSat = timesSat['shkiya'] || timesSat['sunset'] || null;
-              let rtMinutes = (this.config?.zmanim?.rabbeinuTamMinutes) || 72;
-              const toParts = (value) => {
-                if (!value) return null;
-                if (typeof value === 'string' && value.includes('T')) {
-                  const timePart = value.split('T')[1]?.split(/[Z+-]/)[0] || '';
-                  const [timeStr] = timePart.split('.');
-                  const [h, m] = (timeStr || '').split(':').map(Number);
-                  return { h: h || 0, m: m || 0 };
-                }
-                if (typeof value === 'string' && /^\d{2}:\d{2}$/.test(value)) {
-                  const [h, m] = value.split(':').map(Number);
-                  return { h: h || 0, m: m || 0 };
-                }
-                try {
-                  const d = new Date(value);
-                  return { h: d.getHours(), m: d.getMinutes() };
-                } catch { return null; }
-              };
-              const parts = toParts(shkiyaSat);
-              if (parts) {
-                let total = parts.h * 60 + parts.m + rtMinutes;
-                total %= 1440;
-                const hh = String(Math.floor(total / 60)).padStart(2, '0');
-                const mm = String(total % 60).padStart(2, '0');
-                const rt = `${hh}:${mm}`;
-                const rtEl = document.querySelector('[data-id="1:80"]');
-                if (rtEl) {
-                  rtEl.textContent = rt;
-                  rtEl.innerText = rt;
-                  rtEl.innerHTML = rt;
-                  rtEl.setAttribute('data-daily-slot', 'daily-rabbeinuTam');
-                  console.log(`[DAILY] Updated Rabbeinu Tam (sunset+${rtMinutes}) at 1:80 -> ${rt} (for ${shabbatDayStr})`);
-                }
-              }
-            } else {
-              console.warn('[DAILY] Failed to fetch shabbat-day zmanim for Rabbeinu Tam');
-            }
-          } catch (e) {
-            console.warn('[DAILY] Error updating Rabbeinu Tam', e);
-          }
-        } else {
-          console.warn('[DAILY] Failed to fetch next Friday zmanim for kenisatShabbat');
+      if (forShabbat) {
+        const times = zmanimData?.times || {};
+        const key = ['kenisatShabbat22','kenisatShabbat30','kenisatShabbat40'].find(k => times[k]);
+        const val = key ? times[key] : null;
+        const hhmm = toHHMM(val);
+        const el = document.querySelector('[data-id="1:76"]');
+        if (el && hhmm !== '--:--') {
+          el.textContent = hhmm;
+          el.innerText = hhmm;
+          el.innerHTML = hhmm;
+          el.setAttribute('data-daily-slot', 'daily-kenisatShabbat');
+          console.log(`[DAILY] Updated kenisatShabbat (${key}) at 1:76 -> ${hhmm}`);
         }
-      } catch (e) {
-        console.warn('[DAILY] Error updating kenisatShabbat', e);
+
+        const labelKnisat = document.querySelector('[data-id="1:59"]');
+        if (labelKnisat) {
+          labelKnisat.textContent = 'כניסת שבת';
+          labelKnisat.innerText = 'כניסת שבת';
+          labelKnisat.innerHTML = 'כניסת שבת';
+          labelKnisat.setAttribute('data-daily-slot', 'daily-kenisatShabbat');
+          console.log('[DAILY] Updated label at 1:59 -> כניסת שבת');
+        }
+
+        const yetziat = times['yetziatShabbat'] || null;
+        const yetziatHHMM = toHHMM(yetziat);
+        const elYetziat = document.querySelector('[data-id="1:73"]');
+        if (elYetziat && yetziatHHMM !== '--:--') {
+          elYetziat.textContent = yetziatHHMM;
+          elYetziat.innerText = yetziatHHMM;
+          elYetziat.innerHTML = yetziatHHMM;
+          elYetziat.setAttribute('data-daily-slot', 'daily-yetziatShabbat');
+          console.log(`[DAILY] Updated yetziatShabbat at 1:73 -> ${yetziatHHMM}`);
+        }
+
+        try {
+          const now = new Date();
+          const dayOfWeek = now.getDay();
+          const nextFriday = new Date(now);
+          const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
+          nextFriday.setDate(now.getDate() + daysUntilFriday);
+          nextFriday.setHours(0, 0, 0, 0);
+          const nextShabbat = new Date(nextFriday);
+          nextShabbat.setDate(nextFriday.getDate() + 1);
+          const shabbatDayStr = nextShabbat.toISOString().slice(0, 10);
+          const respSat = await fetch(`${this.apiBase}/api/zmanim`, {
+            method: 'POST',
+            headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+            body: JSON.stringify({ latitude: this.latitude, longitude: this.longitude, date: shabbatDayStr })
+          });
+          if (respSat.ok) {
+            const dataSat = await respSat.json();
+            const timesSat = dataSat?.times || {};
+            let shkiyaSat = timesSat['shkiya'] || timesSat['sunset'] || null;
+            let rtMinutes = (this.config?.zmanim?.rabbeinuTamMinutes) || 72;
+            const toParts = (value) => {
+              if (!value) return null;
+              if (typeof value === 'string' && value.includes('T')) {
+                const timePart = value.split('T')[1]?.split(/[Z+-]/)[0] || '';
+                const [timeStr] = timePart.split('.');
+                const [h, m] = (timeStr || '').split(':').map(Number);
+                return { h: h || 0, m: m || 0 };
+              }
+              if (typeof value === 'string' && /^\d{2}:\d{2}$/.test(value)) {
+                const [h, m] = value.split(':').map(Number);
+                return { h: h || 0, m: m || 0 };
+              }
+              try {
+                const d = new Date(value);
+                return { h: d.getHours(), m: d.getMinutes() };
+              } catch { return null; }
+            };
+            const parts = toParts(shkiyaSat);
+            if (parts) {
+              let total = parts.h * 60 + parts.m + rtMinutes;
+              total %= 1440;
+              const hh = String(Math.floor(total / 60)).padStart(2, '0');
+              const mm = String(total % 60).padStart(2, '0');
+              const rt = `${hh}:${mm}`;
+              const rtEl = document.querySelector('[data-id="1:80"]');
+              if (rtEl) {
+                rtEl.textContent = rt;
+                rtEl.innerText = rt;
+                rtEl.innerHTML = rt;
+                rtEl.setAttribute('data-daily-slot', 'daily-rabbeinuTam');
+                console.log(`[DAILY] Updated Rabbeinu Tam (sunset+${rtMinutes}) at 1:80 -> ${rt} (for ${shabbatDayStr})`);
+              }
+            }
+          } else {
+            console.warn('[DAILY] Failed to fetch shabbat-day zmanim for Rabbeinu Tam');
+          }
+        } catch (e) {
+          console.warn('[DAILY] Error updating Rabbeinu Tam', e);
+        }
       }
     } catch (e) {
       console.warn('[DAILY] Failed updating daily times', e);
@@ -1237,8 +1315,8 @@ class ShchakimIntegration {
       console.log(`[CALC] Base time for ${prayer.relativeBase}: ${baseTime}`);
       if (!baseTime) {
         console.warn(`[CALC] No base time found for relativeBase: ${prayer.relativeBase}`);
-      return '--:--';
-    }
+        return '--:--';
+      }
       
       const offsetMinutes = prayer.offsetMinutes || 0;
       
@@ -1776,15 +1854,42 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           slide.appendChild(wrap);
           slider.appendChild(slide);
           slides.push(slide);
+          return slide; // החזר את הסלייד כדי שנוכל לשמור עליו מידע
         };
 
         active.forEach((u) => {
-          // בדוק אם content הוא תמונה base64
           const content = u.content || '';
           const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
-          const imageUrl = u.image || u.imageUrl || (isImageDataUri ? content.trim() : null);
+          let imageUrl = u.image || u.imageUrl || (isImageDataUri ? content.trim() : null);
           const displayContent = isImageDataUri ? '' : content;
-          mkUpdateSlide(u.type, u.title, displayContent, imageUrl);
+          const displayTime = u.displayTime || null;
+          
+          if (imageUrl) {
+            const cached = this.getCachedImage(imageUrl, u.id);
+            if (cached) {
+              imageUrl = cached;
+            } else {
+              this.cacheImageFromUrl(imageUrl, u.id).then(cachedUrl => {
+                if (cachedUrl && cachedUrl !== imageUrl) {
+                  const slide = slider.querySelector(`[data-update-id="${u.id}"]`);
+                  if (slide) {
+                    const img = slide.querySelector('img');
+                    if (img) {
+                      img.src = cachedUrl;
+                    }
+                  }
+                }
+              });
+            }
+          }
+          
+          const slide = mkUpdateSlide(u.type, u.title, displayContent, imageUrl);
+          if (slide) {
+            slide.dataset.updateId = u.id;
+            if (displayTime !== null) {
+              slide.dataset.displayTime = displayTime.toString();
+            }
+          }
         });
       } catch {}
 
@@ -1952,7 +2057,24 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
       let cycleCount = 0;
       let advanceTimeout = null;
       let isPaused = false;
-      const durations = slides.map((_, index) => index === 0 ? 10000 : 30000);
+      
+      const findUpdateSlides = () => {
+        const updateSlides = [];
+        slides.forEach((slide, index) => {
+          if (slide && slide.querySelector('.update-card')) {
+            updateSlides.push(index);
+          }
+        });
+        return updateSlides.sort((a, b) => a - b);
+      };
+      
+      const updateSlides = findUpdateSlides();
+      const lastUpdateIndex = updateSlides.length > 0 ? updateSlides[updateSlides.length - 1] : -1;
+      const hasUpdates = updateSlides.length > 0;
+      
+      console.log('[SLIDER] Update slides indices:', updateSlides);
+      console.log('[SLIDER] Last update index:', lastUpdateIndex);
+      console.log('[SLIDER] Total slides:', slides.length);
       
       const findFirstHalachaSlide = () => {
         for (let i = 1; i <= 2 && i < slides.length; i++) {
@@ -1971,6 +2093,21 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
         isPaused = true;
       };
       
+      const getSlideDuration = (slideIndex) => {
+        if (slideIndex === 0) return 10000;
+        
+        const slide = slides[slideIndex];
+        if (slide) {
+          const displayTime = slide?.dataset?.displayTime;
+          if (displayTime) {
+            const timeInMs = parseFloat(displayTime) * 1000;
+            return Math.max(5000, Math.min(timeInMs, 5 * 60 * 1000));
+          }
+        }
+        
+        return 30000;
+      };
+      
       const startFromSlide = (startIndex) => {
         if (advanceTimeout) {
           clearTimeout(advanceTimeout);
@@ -1981,17 +2118,35 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           if (slide) slide.style.opacity = idx === startIndex ? '1' : '0';
         });
         current = startIndex;
-        const d = durations[current] || (current === 0 ? 10000 : 30000);
+        cycleCount = 0;
+        const d = getSlideDuration(current);
         advanceTimeout = setTimeout(advance, d);
       };
       
       const advance = () => {
         if (isPaused || !slides[current]) return;
+        
+        console.log('[SLIDER] Advancing to slide:', current, 'Last update index:', lastUpdateIndex);
+        
+        if (hasUpdates && current === lastUpdateIndex) {
+          console.log('[SLIDER] Reached last update, will transition after display time');
+          const d = getSlideDuration(current);
+          advanceTimeout = setTimeout(() => {
+            console.log('[SLIDER] Last update display time finished, transitioning to letter screen');
+            stopSlider();
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'slider-cycle-complete' }, '*');
+            }
+          }, d);
+          return;
+        }
+        
         const prev = current;
         current = (current + 1) % slides.length;
+        
         if (current === 0) {
           cycleCount++;
-          if (cycleCount > 0) {
+          if (!hasUpdates && cycleCount > 0) {
             stopSlider();
             if (window.parent && window.parent !== window) {
               window.parent.postMessage({ type: 'slider-cycle-complete' }, '*');
@@ -1999,9 +2154,10 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
             return;
           }
         }
+        
         if (slides[prev]) slides[prev].style.opacity = '0';
         if (slides[current]) slides[current].style.opacity = '1';
-        const d = durations[current] || (current === 0 ? 10000 : 30000);
+        const d = getSlideDuration(current);
         advanceTimeout = setTimeout(advance, d);
       };
       
@@ -2021,7 +2177,8 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
       window.addEventListener('message', handleMessage);
       
       slides[current].style.opacity = '1';
-      advanceTimeout = setTimeout(advance, durations[current] || 10000);
+      const initialDuration = getSlideDuration(current);
+      advanceTimeout = setTimeout(advance, initialDuration);
     } catch (e) {
       console.error('Failed to setup slider', e);
     }
@@ -2285,27 +2442,47 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
             const content = update.content || '';
             const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
             const imageUrl = update.image || update.imageUrl || (isImageDataUri ? content.trim() : null);
+            const displayTime = update.displayTime || null;
+            
+            if (updateSlides[index] && displayTime !== null) {
+              updateSlides[index].dataset.displayTime = displayTime.toString();
+            } else if (updateSlides[index] && displayTime === null) {
+              delete updateSlides[index].dataset.displayTime;
+            }
             
             if (imageUrl && card) {
-              // אם יש תמונה, מציגים רק את התמונה על כל המרובע (ללא כותרת וללא טקסט)
+              let finalImageUrl = imageUrl;
+              const cached = this.getCachedImage(imageUrl, update.id);
+              if (cached) {
+                finalImageUrl = cached;
+              } else {
+                this.cacheImageFromUrl(imageUrl, update.id).then(cachedUrl => {
+                  if (cachedUrl && cachedUrl !== imageUrl) {
+                    const img = card.querySelector('img');
+                    if (img) {
+                      img.src = cachedUrl;
+                    }
+                  }
+                });
+              }
+              
               card.style.padding = '0';
               card.style.width = '100%';
               card.style.height = '100%';
               
-              // הסתר כותרת עליונה, כותרת וטקסט
               if (headingEl) headingEl.style.display = 'none';
               if (titleEl) titleEl.style.display = 'none';
               if (contentEl) contentEl.style.display = 'none';
               
               if (existingImg) {
-                existingImg.src = imageUrl;
+                existingImg.src = finalImageUrl;
                 existingImg.style.width = '100%';
                 existingImg.style.height = '100%';
                 existingImg.style.objectFit = 'contain';
                 existingImg.style.marginBottom = '0';
               } else {
                 const img = document.createElement('img');
-                img.src = imageUrl;
+                img.src = finalImageUrl;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'contain';
@@ -2437,15 +2614,42 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           }
           slide.appendChild(wrap);
           slider.appendChild(slide);
+          return slide; // החזר את הסלייד כדי שנוכל לשמור עליו מידע
         };
 
         active.forEach((u) => {
-          // בדוק אם content הוא תמונה base64
           const content = u.content || '';
           const isImageDataUri = typeof content === 'string' && content.trim().startsWith('data:image/');
-          const imageUrl = u.image || u.imageUrl || (isImageDataUri ? content.trim() : null);
+          let imageUrl = u.image || u.imageUrl || (isImageDataUri ? content.trim() : null);
           const displayContent = isImageDataUri ? '' : content;
-          mkUpdateSlide(u.type, u.title, displayContent, imageUrl);
+          const displayTime = u.displayTime || null;
+          
+          if (imageUrl) {
+            const cached = this.getCachedImage(imageUrl, u.id);
+            if (cached) {
+              imageUrl = cached;
+            } else {
+              this.cacheImageFromUrl(imageUrl, u.id).then(cachedUrl => {
+                if (cachedUrl && cachedUrl !== imageUrl) {
+                  const slide = slider.querySelector(`[data-update-id="${u.id}"]`);
+                  if (slide) {
+                    const img = slide.querySelector('img');
+                    if (img) {
+                      img.src = cachedUrl;
+                    }
+                  }
+                }
+              });
+            }
+          }
+          
+          const slide = mkUpdateSlide(u.type, u.title, displayContent, imageUrl);
+          if (slide) {
+            slide.dataset.updateId = u.id;
+            if (displayTime !== null) {
+              slide.dataset.displayTime = displayTime.toString();
+            }
+          }
         });
       }
     } catch (error) {
