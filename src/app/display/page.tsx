@@ -87,6 +87,7 @@ export default function DisplayPage() {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      console.log('[DISPLAY] Received message:', event.data);
       if (event.data?.type === 'slider-cycle-complete') {
         if (sliderFrameRef.current?.contentWindow) {
           sliderFrameRef.current.contentWindow.postMessage({ type: 'stop-slider' }, '*');
@@ -100,9 +101,11 @@ export default function DisplayPage() {
         }, 90000);
       }
       if (event.data?.command === '/fab-on') {
+        console.log('[DISPLAY] Setting FAB to visible');
         setShowFab(true);
       }
       if (event.data?.command === '/fab-off') {
+        console.log('[DISPLAY] Setting FAB to hidden');
         setShowFab(false);
       }
     };
@@ -120,8 +123,11 @@ export default function DisplayPage() {
         if (!response.ok) return;
         
         const content = await response.json();
+        console.log('[DISPLAY] Loaded FAB state from API:', content.fab);
         if (content.fab) {
-          setShowFab(content.fab.enabled);
+          const newFabState = content.fab.enabled;
+          console.log('[DISPLAY] Setting FAB state from API:', newFabState);
+          setShowFab(newFabState);
         }
       } catch (error) {
         console.error('[DISPLAY] Error loading FAB state:', error);

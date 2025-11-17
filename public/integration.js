@@ -563,10 +563,16 @@ class ShchakimIntegration {
       
       if (data.fab && data.fab.command) {
         if (this.lastFabCommand !== data.fab.command) {
+          console.log('[FAB] Command changed:', this.lastFabCommand, '->', data.fab.command);
           this.lastFabCommand = data.fab.command;
           if (window.parent && window.parent !== window) {
+            console.log('[FAB] Sending command to parent:', data.fab.command);
             window.parent.postMessage({ command: data.fab.command }, '*');
+          } else {
+            console.warn('[FAB] Cannot send command - no parent window or same window');
           }
+        } else {
+          console.log('[FAB] Command unchanged, skipping:', data.fab.command);
         }
       }
       
