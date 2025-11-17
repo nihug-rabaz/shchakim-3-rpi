@@ -28,23 +28,12 @@ export async function GET(req: Request) {
     }
 
     const boardInfo = await response.json();
-    console.log(`[PROXY] Display-fab: received board info for ${boardId}`, JSON.stringify({ show_fab: boardInfo.show_fab }));
-    
-    let showFab = true;
-    if (boardInfo.show_fab === false) {
-      showFab = false;
-    } else if (boardInfo.show_fab === true) {
-      showFab = true;
-    } else if (boardInfo.show_fab === null || boardInfo.show_fab === undefined) {
-      showFab = true;
-    }
-    
-    console.log(`[PROXY] Display-fab: show_fab value:`, boardInfo.show_fab, '-> showFab:', showFab);
+    console.log(`[PROXY] Display-fab: received board info for ${boardId}`);
     
     const fabData = {
-      fab: {
-        enabled: showFab,
-        command: showFab ? '/fab-on' : '/fab-off'
+      fab: boardInfo.fab || {
+        enabled: true,
+        command: '/fab-on'
       }
     };
     
