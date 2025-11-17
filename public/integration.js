@@ -536,7 +536,7 @@ class ShchakimIntegration {
       }
 
       const ts = Date.now();
-      const response = await fetch(`${this.externalApiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
+      const response = await fetch(`${this.apiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-store' }
       });
@@ -569,22 +569,33 @@ class ShchakimIntegration {
       
       await this.updateHalachaInSlider();
       
-      if (data.fab && data.fab.command) {
-        if (this.lastFabCommand !== data.fab.command) {
-          console.log('[FAB] Command changed:', this.lastFabCommand, '->', data.fab.command);
-          this.lastFabCommand = data.fab.command;
-          if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem('shchakim_last_fab_command_sent', data.fab.command);
+      try {
+        const fabResponse = await fetch(`${this.externalApiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-store' }
+        });
+        if (fabResponse.ok) {
+          const fabData = await fabResponse.json();
+          if (fabData.fab && fabData.fab.command) {
+            if (this.lastFabCommand !== fabData.fab.command) {
+              console.log('[FAB] Command changed:', this.lastFabCommand, '->', fabData.fab.command);
+              this.lastFabCommand = fabData.fab.command;
+              if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.setItem('shchakim_last_fab_command_sent', fabData.fab.command);
+              }
+              if (window.parent && window.parent !== window) {
+                console.log('[FAB] Sending command to parent:', fabData.fab.command);
+                window.parent.postMessage({ command: fabData.fab.command }, '*');
+              } else {
+                console.warn('[FAB] Cannot send command - no parent window or same window');
+              }
+            } else {
+              console.log('[FAB] Command unchanged, skipping:', fabData.fab.command);
+            }
           }
-          if (window.parent && window.parent !== window) {
-            console.log('[FAB] Sending command to parent:', data.fab.command);
-            window.parent.postMessage({ command: data.fab.command }, '*');
-          } else {
-            console.warn('[FAB] Cannot send command - no parent window or same window');
-          }
-        } else {
-          console.log('[FAB] Command unchanged, skipping:', data.fab.command);
         }
+      } catch (fabError) {
+        console.warn('[FAB] Error fetching FAB state from external API:', fabError);
       }
       
     } catch (error) {

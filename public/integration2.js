@@ -195,7 +195,7 @@ class LetterIntegration {
       if (isOnline) {
         try {
           const ts = Date.now();
-          const response = await fetch(`${this.externalApiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
+          const response = await fetch(`${this.apiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
             cache: 'no-store',
             headers: { 'Cache-Control': 'no-store' },
             signal: AbortSignal.timeout(10000)
