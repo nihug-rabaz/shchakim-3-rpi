@@ -102,11 +102,13 @@ export default function DisplayPage() {
           }
         }, 90000);
       }
-      if (event.data?.command === '/fab-on' || event.data?.command === '/fab-off') {
-        console.log('[DISPLAY] FAB command received, navigating to settings:', event.data.command);
-        if (boardId) {
-          router.push(`/unit/${boardId}/settings`);
-        }
+      if (event.data?.command === '/fab-on') {
+        console.log('[DISPLAY] FAB command received, navigating to /fab-on');
+        router.push('/fab-on');
+      }
+      if (event.data?.command === '/fab-off') {
+        console.log('[DISPLAY] FAB command received, navigating to /fab-off');
+        router.push('/fab-off');
       }
     };
 
