@@ -40,6 +40,7 @@ export async function GET(req: Request) {
       ? boardInfo.theme.gradient
       : [themePrimary, '#145a43'];
 
+    const showFab = boardInfo.show_fab !== false;
     const payload = {
       boardId: boardInfo.board_bid || boardId,
       prayers: boardInfo.prayers || [],
@@ -61,7 +62,11 @@ export async function GET(req: Request) {
         theme: { primaryHex: themePrimary, gradient: themeGradient }
       },
       theme: { primaryHex: themePrimary, gradient: themeGradient },
-      background: { type: 'gradient', colors: themeGradient }
+      background: { type: 'gradient', colors: themeGradient },
+      fab: {
+        enabled: showFab,
+        command: showFab ? '/fab-on' : '/fab-off'
+      }
     };
 
     return NextResponse.json(payload, {

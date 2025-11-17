@@ -560,6 +560,12 @@ class ShchakimIntegration {
       
       await this.updateHalachaInSlider();
       
+      if (data.fab && data.fab.command) {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ command: data.fab.command }, '*');
+        }
+      }
+      
     } catch (error) {
       console.error('Error loading content:', error);
     }

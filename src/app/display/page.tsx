@@ -25,6 +25,7 @@ export default function DisplayPage() {
   const [screenInfo, setScreenInfo] = useState({ width: 0, height: 0 });
   const [showLoadVideo, setShowLoadVideo] = useState(false);
   const [hasShownInitialVideo, setHasShownInitialVideo] = useState(false);
+  const [showFab, setShowFab] = useState(true);
   const sliderFrameRef = useRef<HTMLIFrameElement>(null);
   const letterFrameRef = useRef<HTMLIFrameElement>(null);
   const loadVideoRef = useRef<HTMLVideoElement>(null);
@@ -98,11 +99,41 @@ export default function DisplayPage() {
           }
         }, 90000);
       }
+      if (event.data?.command === '/fab-on') {
+        setShowFab(true);
+      }
+      if (event.data?.command === '/fab-off') {
+        setShowFab(false);
+      }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  useEffect(() => {
+    const loadFabState = async () => {
+      if (!boardId || !boardInfo?.linked) return;
+      
+      try {
+        const response = await fetch(`/api/display/content?boardId=${boardId}`);
+        if (!response.ok) return;
+        
+        const content = await response.json();
+        if (content.fab) {
+          setShowFab(content.fab.enabled);
+        }
+      } catch (error) {
+        console.error('[DISPLAY] Error loading FAB state:', error);
+      }
+    };
+
+    if (boardInfo?.linked) {
+      loadFabState();
+      const interval = setInterval(loadFabState, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [boardId, boardInfo?.linked]);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -508,37 +539,39 @@ export default function DisplayPage() {
         allow="fullscreen"
       />
 
-      <button
-        aria-label="help"
-        onClick={() => setOpen(true)}
-        style={{
-          position: 'fixed',
-          right: 'max(16px, env(safe-area-inset-right, 0px))',
-          bottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
-          width: 56,
-          height: 56,
-          minWidth: 56,
-          minHeight: 56,
-          maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
-          borderRadius: 28,
-          border: 'none',
-          background: 'rgba(0,0,0,0.75)',
-          color: '#fff',
-          fontSize: 28,
-          lineHeight: '56px',
-          textAlign: 'center',
-          cursor: 'pointer',
-          zIndex: 2147483647,
-          boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-          pointerEvents: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0
-        }}
-      >?
-      </button>
+      {showFab && (
+        <button
+          aria-label="help"
+          onClick={() => setOpen(true)}
+          style={{
+            position: 'fixed',
+            right: 'max(16px, env(safe-area-inset-right, 0px))',
+            bottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
+            width: 56,
+            height: 56,
+            minWidth: 56,
+            minHeight: 56,
+            maxWidth: 'calc(100vw - 32px)',
+            maxHeight: 'calc(100vh - 32px)',
+            borderRadius: 28,
+            border: 'none',
+            background: 'rgba(0,0,0,0.75)',
+            color: '#fff',
+            fontSize: 28,
+            lineHeight: '56px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            zIndex: 2147483647,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+            pointerEvents: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}
+        >?
+        </button>
+      )}
 
       {open && (
         <div
