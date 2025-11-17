@@ -9,6 +9,7 @@ class ShchakimIntegration {
     this.contentInterval = null;
     this.boardInfo = null;
     this.imageCache = new Map();
+    this.lastFabCommand = null;
     this.init();
   }
 
@@ -561,8 +562,11 @@ class ShchakimIntegration {
       await this.updateHalachaInSlider();
       
       if (data.fab && data.fab.command) {
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ command: data.fab.command }, '*');
+        if (this.lastFabCommand !== data.fab.command) {
+          this.lastFabCommand = data.fab.command;
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ command: data.fab.command }, '*');
+          }
         }
       }
       
