@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import BoardManager from '@/utils/BoardManager';
 
 function buildQrUrl(targetUrl: string, size: number) {
@@ -14,6 +15,7 @@ type BoardInfo = {
 };
 
 export default function DisplayPage() {
+  const router = useRouter();
   const [boardId, setBoardId] = useState<string>('');
   const [boardInfo, setBoardInfo] = useState<BoardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,19 +102,17 @@ export default function DisplayPage() {
           }
         }, 90000);
       }
-      if (event.data?.command === '/fab-on') {
-        console.log('[DISPLAY] Setting FAB to visible');
-        setShowFab(true);
-      }
-      if (event.data?.command === '/fab-off') {
-        console.log('[DISPLAY] Setting FAB to hidden');
-        setShowFab(false);
+      if (event.data?.command === '/fab-on' || event.data?.command === '/fab-off') {
+        console.log('[DISPLAY] FAB command received, navigating to settings:', event.data.command);
+        if (boardId) {
+          router.push(`/unit/${boardId}/settings`);
+        }
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [boardId, router]);
 
   useEffect(() => {
     const loadFabState = async () => {

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 type BoardData = {
@@ -26,6 +26,8 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showFab, setShowFab] = useState(true);
   const [message, setMessage] = useState<string>('');
+  const [showLoadVideo, setShowLoadVideo] = useState(true);
+  const loadVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const loadBoardData = async () => {
@@ -49,12 +51,37 @@ export default function SettingsPage() {
   }, [boardId]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push('/display');
-    }, 5000);
+    if (showLoadVideo && loadVideoRef.current) {
+      const video = loadVideoRef.current;
+      
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            video.currentTime = 0;
+          })
+          .catch((error) => {
+            console.error('[SETTINGS] Error playing video:', error);
+            setShowLoadVideo(false);
+          });
+      }
+      
+      const timer = setTimeout(() => {
+        setShowLoadVideo(false);
+        setTimeout(() => {
+          router.push('/display');
+        }, 500);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => {
+        router.push('/display');
+      }, 5000);
 
-    return () => clearTimeout(timer);
-  }, [router]);
+      return () => clearTimeout(timer);
+    }
+  }, [router, showLoadVideo]);
 
   const handleSave = async () => {
     if (!boardId) return;
@@ -88,6 +115,58 @@ export default function SettingsPage() {
       setIsSaving(false);
     }
   };
+
+  if (showLoadVideo) {
+    return (
+      <div style={{
+        width: '100vw',
+        height: '100vh',
+        margin: 0,
+        padding: 0,
+        overflow: 'hidden',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: '#FFFFFF',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <video
+          ref={loadVideoRef}
+          src="/load.mp4"
+          autoPlay
+          muted
+          playsInline
+          loop={false}
+          onError={(e) => {
+            console.error('[SETTINGS] Video error:', e);
+            setShowLoadVideo(false);
+          }}
+          onLoadedData={() => {
+            console.log('[SETTINGS] Video loaded successfully');
+          }}
+          onEnded={() => {
+            console.log('[SETTINGS] Video ended');
+            setShowLoadVideo(false);
+            setTimeout(() => {
+              router.push('/display');
+            }, 500);
+          }}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            height: '55vh',
+            objectFit: 'contain',
+            display: 'block'
+          }}
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
