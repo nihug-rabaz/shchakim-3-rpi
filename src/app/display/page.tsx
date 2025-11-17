@@ -140,13 +140,13 @@ export default function DisplayPage() {
       if (!boardId || !boardInfo?.linked) return;
       
       try {
-        const response = await fetch(`/api/display/content?boardId=${boardId}`);
+        const response = await fetch(`/api/display/fab?boardId=${boardId}`);
         if (!response.ok) return;
         
-        const content = await response.json();
-        console.log('[DISPLAY] Loaded FAB state from API:', content.fab);
-        if (content.fab) {
-          const newFabState = content.fab.enabled;
+        const fabData = await response.json();
+        console.log('[DISPLAY] Loaded FAB state from API:', fabData.fab);
+        if (fabData.fab) {
+          const newFabState = fabData.fab.enabled;
           console.log('[DISPLAY] Setting FAB state from API:', newFabState);
           setShowFab(newFabState);
         }
