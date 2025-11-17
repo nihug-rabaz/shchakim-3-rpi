@@ -570,7 +570,7 @@ class ShchakimIntegration {
       await this.updateHalachaInSlider();
       
       try {
-        const fabResponse = await fetch(`${this.externalApiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
+        const fabResponse = await fetch(`${this.apiBase}/api/display/fab?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-store' }
         });
@@ -595,7 +595,7 @@ class ShchakimIntegration {
           }
         }
       } catch (fabError) {
-        console.warn('[FAB] Error fetching FAB state from external API:', fabError);
+        console.warn('[FAB] Error fetching FAB state from proxy:', fabError);
       }
       
     } catch (error) {
