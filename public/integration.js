@@ -2,6 +2,7 @@
 class ShchakimIntegration {
   constructor() {
     this.apiBase = window.location.origin;
+    this.externalApiBase = 'https://shchakim.rabaz.co.il';
     this.themeColor = '#054a36';
     this.overlayOpacity = 0.21;
     this.updateInterval = 60000;
@@ -535,7 +536,7 @@ class ShchakimIntegration {
       }
 
       const ts = Date.now();
-      const response = await fetch(`${this.apiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
+      const response = await fetch(`${this.externalApiBase}/api/display/content?boardId=${encodeURIComponent(boardId)}&t=${ts}`, {
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-store' }
       });
