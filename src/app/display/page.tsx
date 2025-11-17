@@ -28,6 +28,7 @@ export default function DisplayPage() {
   const [showLoadVideo, setShowLoadVideo] = useState(false);
   const [hasShownInitialVideo, setHasShownInitialVideo] = useState(false);
   const [showFab, setShowFab] = useState(true);
+  const lastFabCommandRef = useRef<string | null>(null);
   const sliderFrameRef = useRef<HTMLIFrameElement>(null);
   const letterFrameRef = useRef<HTMLIFrameElement>(null);
   const loadVideoRef = useRef<HTMLVideoElement>(null);
@@ -102,13 +103,16 @@ export default function DisplayPage() {
           }
         }, 90000);
       }
-      if (event.data?.command === '/fab-on') {
-        console.log('[DISPLAY] FAB command received, navigating to /fab-on');
-        router.push('/fab-on');
-      }
-      if (event.data?.command === '/fab-off') {
-        console.log('[DISPLAY] FAB command received, navigating to /fab-off');
-        router.push('/fab-off');
+      if (event.data?.command === '/fab-on' || event.data?.command === '/fab-off') {
+        const command = event.data.command;
+        if (lastFabCommandRef.current !== command) {
+          console.log('[DISPLAY] FAB command changed:', lastFabCommandRef.current, '->', command);
+          lastFabCommandRef.current = command;
+          console.log('[DISPLAY] Navigating to:', command);
+          router.push(command);
+        } else {
+          console.log('[DISPLAY] FAB command unchanged, skipping navigation:', command);
+        }
       }
     };
 
