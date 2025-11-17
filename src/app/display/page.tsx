@@ -33,6 +33,16 @@ export default function DisplayPage() {
   const letterFrameRef = useRef<HTMLIFrameElement>(null);
   const loadVideoRef = useRef<HTMLVideoElement>(null);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedCommand = localStorage.getItem('shchakim_last_fab_command');
+      if (savedCommand) {
+        lastFabCommandRef.current = savedCommand;
+        console.log('[DISPLAY] Loaded last FAB command from storage:', savedCommand);
+      }
+    }
+  }, []);
+
   const claimUrl = useMemo(() => {
     if (typeof window === 'undefined' || !boardId) return '';
     return `https://shchakim.rabaz.co.il/claim?id=${boardId}`;
@@ -105,13 +115,18 @@ export default function DisplayPage() {
       }
       if (event.data?.command === '/fab-on' || event.data?.command === '/fab-off') {
         const command = event.data.command;
-        if (lastFabCommandRef.current !== command) {
-          console.log('[DISPLAY] FAB command changed:', lastFabCommandRef.current, '->', command);
+        const lastExecutedCommand = lastFabCommandRef.current;
+        
+        if (lastExecutedCommand !== command) {
+          console.log('[DISPLAY] FAB command changed:', lastExecutedCommand, '->', command);
           lastFabCommandRef.current = command;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('shchakim_last_fab_command', command);
+          }
           console.log('[DISPLAY] Navigating to:', command);
           router.push(command);
         } else {
-          console.log('[DISPLAY] FAB command unchanged, skipping navigation:', command);
+          console.log('[DISPLAY] FAB command unchanged, staying on display. Last executed:', lastExecutedCommand, 'Current:', command);
         }
       }
     };
