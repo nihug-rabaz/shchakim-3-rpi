@@ -10,6 +10,13 @@ class ShchakimIntegration {
     this.boardInfo = null;
     this.imageCache = new Map();
     this.lastFabCommand = null;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const savedCommand = localStorage.getItem('shchakim_last_fab_command_sent');
+      if (savedCommand) {
+        this.lastFabCommand = savedCommand;
+        console.log('[FAB] Loaded last FAB command from storage:', savedCommand);
+      }
+    }
     this.init();
   }
 
@@ -565,6 +572,9 @@ class ShchakimIntegration {
         if (this.lastFabCommand !== data.fab.command) {
           console.log('[FAB] Command changed:', this.lastFabCommand, '->', data.fab.command);
           this.lastFabCommand = data.fab.command;
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('shchakim_last_fab_command_sent', data.fab.command);
+          }
           if (window.parent && window.parent !== window) {
             console.log('[FAB] Sending command to parent:', data.fab.command);
             window.parent.postMessage({ command: data.fab.command }, '*');
