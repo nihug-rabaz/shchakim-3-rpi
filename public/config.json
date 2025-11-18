@@ -3,9 +3,6 @@
     "latitude": 31.7683,
     "longitude": -35.2137
   },
-  "zmanimAPI": {
-    "url": "https://zmanim-web.vercel.app/api/zmanim"
-  },
   "organization": {
     "name": "מטה הרבנות הצבאית"
   }

@@ -2,10 +2,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import BoardManager from '@/utils/BoardManager';
-
-function buildQrUrl(targetUrl: string, size: number) {
-  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(targetUrl)}&size=${size}x${size}&margin=0`;
-}
+import { QRCodeSVG } from 'qrcode.react';
 
 type BoardInfo = {
   linked: boolean;
@@ -356,23 +353,34 @@ export default function DisplayPage() {
               alignItems: 'center',
               width: '100%'
             }}>
-              <img
-                alt="QR Code"
-                src={buildQrUrl(claimUrl, 500)}
-                style={{
-                  width: 'min(80vw, 70vh, 500px)',
-                  height: 'auto',
-                  maxWidth: '100%',
-                  aspectRatio: '1',
-                  background: '#fff',
-                  borderRadius: 'clamp(8px, 1.2vw, 12px)',
-                  padding: 'clamp(5px, 1vw, 12px)',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-                  boxSizing: 'border-box',
-                  objectFit: 'contain',
-                  display: 'block'
-                }}
-              />
+              <div style={{
+                width: 'min(80vw, 70vh, 500px)',
+                height: 'min(80vw, 70vh, 500px)',
+                maxWidth: '100%',
+                aspectRatio: '1',
+                background: '#fff',
+                borderRadius: 'clamp(8px, 1.2vw, 12px)',
+                padding: 'clamp(5px, 1vw, 12px)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
+                boxSizing: 'border-box',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <QRCodeSVG
+                  value={claimUrl}
+                  size={500}
+                  level="M"
+                  includeMargin={false}
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    maxWidth: '100%', 
+                    maxHeight: '100%',
+                    display: 'block'
+                  }}
+                />
+              </div>
             </div>
           )}
 
