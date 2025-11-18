@@ -15,15 +15,11 @@ type BoardUpdateData = {
   };
 };
 
-type RouteContext = {
-  params: { id: string };
-};
-
 export async function GET(
   _request: NextRequest,
-  context: RouteContext
+  { params }: { params: { id: string } }
 ) {
-  const boardId = context.params.id;
+  const boardId = params.id;
 
   if (!boardId) {
     return NextResponse.json({ error: 'board id required' }, { status: 400 });
@@ -67,9 +63,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: RouteContext
+  { params }: { params: { id: string } }
 ) {
-  const boardId = context.params.id;
+  const boardId = params.id;
 
   if (!boardId) {
     return NextResponse.json({ error: 'board id required' }, { status: 400 });
