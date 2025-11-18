@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 const API_BASE = 'https://shchakim.rabaz.co.il';
 
@@ -15,11 +15,15 @@ type BoardUpdateData = {
   };
 };
 
+type RouteContext = {
+  params: { id: string };
+};
+
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  context: RouteContext
 ) {
-  const boardId = params.id;
+  const boardId = context.params.id;
 
   if (!boardId) {
     return NextResponse.json({ error: 'board id required' }, { status: 400 });
@@ -62,17 +66,17 @@ export async function GET(
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: RouteContext
 ) {
-  const boardId = params.id;
+  const boardId = context.params.id;
 
   if (!boardId) {
     return NextResponse.json({ error: 'board id required' }, { status: 400 });
   }
 
   try {
-    const body: BoardUpdateData = await req.json();
+    const body: BoardUpdateData = await request.json();
     
     const updateData: any = {};
     if (body.show_fab !== undefined) updateData.show_fab = body.show_fab;
