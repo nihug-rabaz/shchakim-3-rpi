@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { HDate } from '@hebcal/core';
+import { calculateZmanInputs } from '@/lib/zmanim/utils/zmanCalculator';
+import { getIsraelOffsetHours } from '@/lib/zmanim/utils/timezone';
+import { getParashaSpecial } from '@/lib/zmanim/utils/parasha';
 
 type Req = { latitude: number; longitude: number; date?: string };
 
@@ -10,257 +13,170 @@ export async function POST(req: Request) {
   }
 
   const dateStr = body.date;
-  const gregorianDate = dateStr ? new Date(dateStr) : new Date();
+  const day = dateStr ? new Date(dateStr + "T00:00:00.000Z") : new Date();
+  const shift = getIsraelOffsetHours(day);
+  const israelMidnight = dateStr ? new Date(dateStr) : new Date();
+  israelMidnight.setHours(0, 0, 0, 0);
+
+  const hdate = new HDate(israelMidnight);
+  const parasha = getParashaSpecial(israelMidnight);
+
+  const dow = israelMidnight.getDay();
   
-  // Call external zmanim API via server-side proxy with explicit headers
-  try {
-    const incomingUA = (req.headers as any).get?.('user-agent') || 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36';
-    const payload = {
-      latitude: body.latitude,
-      longitude: body.longitude,
-      date: dateStr || gregorianDate.toISOString().slice(0, 10)
-    };
+  let daysToFriday;
+  if (dow === 5) {
+    daysToFriday = 0;
+  } else if (dow === 6) {
+    daysToFriday = 6;
+  } else {
+    daysToFriday = 5 - dow;
+  }
 
-    const zmanimResponse = await fetch('https://zmanim-web.vercel.app/api/zmanim', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'accept-language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
-        'content-type': 'application/json',
-        // Some services expect same-origin style headers; emulate as needed
-        'origin': 'https://zmanim-web.vercel.app',
-        'referer': 'https://zmanim-web.vercel.app/',
-        'priority': 'u=1, i',
-        'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-        'sec-ch-ua-mobile': '?1',
-        'sec-ch-ua-platform': '"Android"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'user-agent': incomingUA
-      },
-      body: JSON.stringify(payload)
-    });
+  let daysToMotzash;
+  if (dow === 6) {
+    daysToMotzash = 0;
+  } else {
+    daysToMotzash = 6 - dow;
+  }
 
-    if (!zmanimResponse.ok) {
-      throw new Error('Failed to fetch from zmanim API');
-    }
-
-    const zmanimData = await zmanimResponse.json();
-    
-    // Extract data from zmanim API response
-    // The API might return data in different structures, check common patterns
-    const hebrewDateFromAPI = zmanimData.hebrewDate || zmanimData.hebrew?.date || zmanimData.hebrewDateString;
-    const parasha = zmanimData.parasha || zmanimData.parashaName || zmanimData.parsha || zmanimData.torahPortion;
-    const times = zmanimData.times || zmanimData.zmanim || zmanimData || {};
-    
-    // Log for debugging
-    console.log('Zmanim API response:', JSON.stringify(zmanimData, null, 2));
-    
-    // Calculate Hebrew date locally for display format
-    const hebrewDate = new HDate(gregorianDate);
-    const hebrewDay = hebrewDate.getDate();
-    const hebrewMonth = hebrewDate.getMonth();
-    const hebrewYear = hebrewDate.getFullYear();
+  const fridayDate = new Date(dateStr ? dateStr + "T00:00:00.000Z" : day.toISOString().slice(0, 10) + "T00:00:00.000Z");
+  fridayDate.setDate(fridayDate.getDate() + daysToFriday);
+  const fridayShift = getIsraelOffsetHours(fridayDate);
+  const { shkiya: shkiyaFri } = calculateZmanInputs(fridayDate, fridayShift, body.latitude, body.longitude);
   
-  // Hebrew month names (HDate uses 0=Nisan, 1=Iyar, ... 11=Adar2)
-  // But we need to map correctly based on actual month returned
+  const MotzashDate = new Date(dateStr ? dateStr + "T00:00:00.000Z" : day.toISOString().slice(0, 10) + "T00:00:00.000Z");
+  MotzashDate.setDate(MotzashDate.getDate() + daysToMotzash);
+  const MotzashShift = getIsraelOffsetHours(MotzashDate);
+  const { shkiya: shkiyaMotzash } = calculateZmanInputs(MotzashDate, MotzashShift, body.latitude, body.longitude);
+
+  const kenisatShabbat22 = new Date(shkiyaFri.getTime() - 22 * 60_000);
+  const kenisatShabbat30 = new Date(shkiyaFri.getTime() - 30 * 60_000);
+  const kenisatShabbat40 = new Date(shkiyaFri.getTime() - 40 * 60_000);
+  const yetziatShabbat = new Date(shkiyaMotzash.getTime() + 35 * 60_000);
+
+  const { 
+    alot90,
+    alot72,
+    talitTefillin,
+    zricha,
+    musafGRA,
+    startOfTenthHourGRA,
+    startOfTenthHourMGA,
+    fourthHourGRA,
+    fourthHourMGA,
+    fifthHourGRA,
+    fifthHourMGA,
+    minchaGedola,
+    minchaKetana,
+    shkiya,
+    plagMincha,
+    chatzot,
+    tzait,
+    tzait90,
+    chatzotHaLayla,
+    sofZmanShemaMGA,
+    sofZmanShemaGRA,
+    sofZmanTefilaMGA,
+    sofZmanTefilaGRA,
+  } = calculateZmanInputs(day, shift, body.latitude, body.longitude);
+
+  const hebrewDate = new HDate(israelMidnight);
+  const hebrewDay = hebrewDate.getDate();
+  const hebrewMonth = hebrewDate.getMonth();
+  const hebrewYear = hebrewDate.getFullYear();
+
   const hebrewMonthsMap: Record<number, string> = {
-    0: 'ניסן',
-    1: 'אייר',
-    2: 'סיון',
-    3: 'תמוז',
-    4: 'אב',
-    5: 'אלול',
-    6: 'תשרי',
-    7: 'חשוון',
-    8: 'כסלו',
-    9: 'טבת',
-    10: 'שבט',
-    11: 'אדר',
-    12: 'אדר א', // Adar I in leap years
-    13: 'אדר ב'  // Adar II in leap years
+    0: 'ניסן', 1: 'אייר', 2: 'סיון', 3: 'תמוז', 4: 'אב', 5: 'אלול',
+    6: 'תשרי', 7: 'חשוון', 8: 'כסלו', 9: 'טבת', 10: 'שבט', 11: 'אדר',
+    12: 'אדר א', 13: 'אדר ב'
   };
-  
-  // Convert day number to Hebrew letters (for numbers 1-30)
+
   function dayToHebrew(day: number): string {
-    // Hebrew letters for numbers
     const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
     const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
-    
     if (day < 1) return '';
-    if (day === 15) return 'טו'; // Special case
-    if (day === 16) return 'טז'; // Special case
+    if (day === 15) return 'טו';
+    if (day === 16) return 'טז';
     if (day < 10) return ones[day];
-    
     const tensDigit = Math.floor(day / 10);
     const onesDigit = day % 10;
-    
-    if (onesDigit === 0) {
-      return tens[tensDigit];
-    } else {
-      return tens[tensDigit] + ones[onesDigit];
-    }
+    if (onesDigit === 0) return tens[tensDigit];
+    return tens[tensDigit] + ones[onesDigit];
   }
-  
-  // Convert year to Hebrew format (e.g., 5786 -> תשפ"ו)
+
   function yearToHebrew(year: number): string {
     const yearMap: Record<number, string> = {
-      5785: 'תשפ"ה',
-      5786: 'תשפ"ו',
-      5787: 'תשפ"ז',
-      5788: 'תשפ"ח',
-      5789: 'תשפ"ט',
-      5784: 'תשפ"ד',
-      5783: 'תשפ"ג',
-      5782: 'תשפ"ב',
-      5781: 'תשפ"א',
-      5780: 'תש"פ',
-      5779: 'תשע"ט',
-      5778: 'תשע"ח',
-      5777: 'תשע"ז',
-      5776: 'תשע"ו',
-      5775: 'תשע"ה'
+      5785: 'תשפ"ה', 5786: 'תשפ"ו', 5787: 'תשפ"ז', 5788: 'תשפ"ח', 5789: 'תשפ"ט',
+      5784: 'תשפ"ד', 5783: 'תשפ"ג', 5782: 'תשפ"ב', 5781: 'תשפ"א', 5780: 'תש"פ'
     };
-    
-    if (yearMap[year]) {
-      return yearMap[year];
-    }
-    
-    // Fallback: construct from year digits
+    if (yearMap[year]) return yearMap[year];
     const yearStr = year.toString();
     const lastTwo = parseInt(yearStr.slice(-2));
-    
     const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
     const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
-    
-    if (lastTwo < 10) {
-      return `תש"${ones[lastTwo]}`;
-    } else {
-      const tensDigit = Math.floor(lastTwo / 10);
-      const onesDigit = lastTwo % 10;
-      if (tensDigit === 8) {
-        return `תש${tens[8]}"${ones[onesDigit]}`;
-      } else {
-        return `תש${tens[tensDigit]}${ones[onesDigit]}"ה`;
-      }
-    }
+    if (lastTwo < 10) return `תש"${ones[lastTwo]}`;
+    const tensDigit = Math.floor(lastTwo / 10);
+    const onesDigit = lastTwo % 10;
+    if (tensDigit === 8) return `תש${tens[8]}"${ones[onesDigit]}`;
+    return `תש${tens[tensDigit]}${ones[onesDigit]}"ה`;
   }
-  
-  // Format Hebrew date in Hebrew: "יא חשוון תשפ"ו"
+
   const hebrewDayStr = dayToHebrew(hebrewDay);
-  // Use the month name from the library or fallback to our map
   let hebrewMonthStr: string;
   try {
-    // Try to get Hebrew month name from the library
     const monthName = hebrewDate.getMonthName();
-    // Convert transliterated name to Hebrew
     const monthNameMap: Record<string, string> = {
-      'Nisan': 'ניסן',
-      'Iyar': 'אייר',
-      'Sivan': 'סיון',
-      'Tamuz': 'תמוז',
-      'Av': 'אב',
-      'Elul': 'אלול',
-      'Tishrei': 'תשרי',
-      'Cheshvan': 'חשוון',
-      'Kislev': 'כסלו',
-      'Teves': 'טבת',
-      'Shevat': 'שבט',
-      'Adar': 'אדר',
-      'Adar I': 'אדר א',
-      'Adar II': 'אדר ב'
+      'Nisan': 'ניסן', 'Iyar': 'אייר', 'Sivan': 'סיון', 'Tamuz': 'תמוז',
+      'Av': 'אב', 'Elul': 'אלול', 'Tishrei': 'תשרי', 'Cheshvan': 'חשוון',
+      'Kislev': 'כסלו', 'Teves': 'טבת', 'Shevat': 'שבט', 'Adar': 'אדר',
+      'Adar I': 'אדר א', 'Adar II': 'אדר ב'
     };
     hebrewMonthStr = monthNameMap[monthName] || hebrewMonthsMap[hebrewMonth] || 'חודש';
   } catch {
-    // Fallback to our map
     hebrewMonthStr = hebrewMonthsMap[hebrewMonth] || 'חודש';
   }
   const hebrewYearStr = yearToHebrew(hebrewYear);
   const hebrewDateFormatted = `${hebrewDayStr} ${hebrewMonthStr} ${hebrewYearStr}`;
 
-    return NextResponse.json({
-      date: dateStr ?? gregorianDate.toISOString().slice(0, 10),
-      location: { lat: body.latitude, lng: body.longitude },
-      hebrew: {
-        day: hebrewDay,
-        month: hebrewMonth + 1,
-        year: hebrewYear,
-        formatted: hebrewDateFormatted,
-        date: hebrewDateFormatted,
-        original: hebrewDateFromAPI
-      },
-      parasha: parasha,
-      times: times
-    });
-  } catch (error) {
-    console.error('Error fetching from zmanim API:', error);
-    // Fallback to local calculation if API fails
-    const hebrewDate = new HDate(gregorianDate);
-    const hebrewDay = hebrewDate.getDate();
-    const hebrewMonth = hebrewDate.getMonth();
-    const hebrewYear = hebrewDate.getFullYear();
-    
-    // Continue with local formatting as fallback...
-    const hebrewMonthsMap: Record<number, string> = {
-      0: 'ניסן', 1: 'אייר', 2: 'סיון', 3: 'תמוז', 4: 'אב', 5: 'אלול',
-      6: 'תשרי', 7: 'חשוון', 8: 'כסלו', 9: 'טבת', 10: 'שבט', 11: 'אדר'
-    };
-    
-    function dayToHebrew(day: number): string {
-      const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
-      const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
-      if (day < 1) return '';
-      if (day === 15) return 'טו';
-      if (day === 16) return 'טז';
-      if (day < 10) return ones[day];
-      const tensDigit = Math.floor(day / 10);
-      const onesDigit = day % 10;
-      if (onesDigit === 0) return tens[tensDigit];
-      return tens[tensDigit] + ones[onesDigit];
+  return NextResponse.json({
+    date: dateStr ?? day.toISOString().slice(0, 10),
+    location: { lat: body.latitude, lng: body.longitude },
+    hebrew: {
+      day: hebrewDay,
+      month: hebrewMonth + 1,
+      year: hebrewYear,
+      formatted: hebrewDateFormatted,
+      date: hebrewDateFormatted
+    },
+    parasha: parasha,
+    times: {
+      alot90: alot90.toISOString(),
+      alot72: alot72.toISOString(),
+      talitTefillin: talitTefillin.toISOString(),
+      zricha: zricha.toISOString(),
+      musafGRA: musafGRA.toISOString(),
+      startOfTenthHourGRA: startOfTenthHourGRA.toISOString(),
+      startOfTenthHourMGA: startOfTenthHourMGA.toISOString(),
+      fourthHourGRA: fourthHourGRA.toISOString(),
+      fourthHourMGA: fourthHourMGA.toISOString(),
+      fifthHourGRA: fifthHourGRA.toISOString(),
+      fifthHourMGA: fifthHourMGA.toISOString(),
+      minchaGedola: minchaGedola.toISOString(),
+      minchaKetana: minchaKetana.toISOString(),
+      shkiya: shkiya.toISOString(),
+      chatzot: chatzot.toISOString(),
+      plagMincha: plagMincha.toISOString(),
+      tzait: tzait.toISOString(),
+      tzait90: tzait90.toISOString(),
+      chatzotHaLayla: chatzotHaLayla.toISOString(),
+      kenisatShabbat22: kenisatShabbat22.toISOString(),
+      kenisatShabbat30: kenisatShabbat30.toISOString(),
+      kenisatShabbat40: kenisatShabbat40.toISOString(),
+      sofZmanShemaMGA: sofZmanShemaMGA.toISOString(),
+      sofZmanShemaGRA: sofZmanShemaGRA.toISOString(),
+      sofZmanTefilaMGA: sofZmanTefilaMGA.toISOString(),
+      sofZmanTefilaGRA: sofZmanTefilaGRA.toISOString(),
+      yetziatShabbat: yetziatShabbat.toISOString()
     }
-    
-    function yearToHebrew(year: number): string {
-      const yearMap: Record<number, string> = {
-        5785: 'תשפ"ה', 5786: 'תשפ"ו', 5787: 'תשפ"ז', 5788: 'תשפ"ח', 5789: 'תשפ"ט',
-        5784: 'תשפ"ד', 5783: 'תשפ"ג', 5782: 'תשפ"ב', 5781: 'תשפ"א', 5780: 'תש"פ'
-      };
-      if (yearMap[year]) return yearMap[year];
-      const yearStr = year.toString();
-      const lastTwo = parseInt(yearStr.slice(-2));
-      const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
-      const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
-      if (lastTwo < 10) return `תש"${ones[lastTwo]}`;
-      const tensDigit = Math.floor(lastTwo / 10);
-      const onesDigit = lastTwo % 10;
-      if (tensDigit === 8) return `תש${tens[8]}"${ones[onesDigit]}`;
-      return `תש${tens[tensDigit]}${ones[onesDigit]}"ה`;
-    }
-    
-    const hebrewDayStr = dayToHebrew(hebrewDay);
-    const hebrewMonthStr = hebrewMonthsMap[hebrewMonth] || 'חודש';
-    const hebrewYearStr = yearToHebrew(hebrewYear);
-    const hebrewDateFormatted = `${hebrewDayStr} ${hebrewMonthStr} ${hebrewYearStr}`;
-    
-    return NextResponse.json({
-      date: dateStr ?? gregorianDate.toISOString().slice(0, 10),
-      location: { lat: body.latitude, lng: body.longitude },
-      hebrew: {
-        day: hebrewDay,
-        month: hebrewMonth + 1,
-        year: hebrewYear,
-        formatted: hebrewDateFormatted,
-        date: hebrewDateFormatted
-      },
-      parasha: null,
-      times: {
-        sunrise: '06:30',
-        sunset: '18:30',
-        tzeit: '18:50'
-      }
-    });
-  }
+  });
 }
-
-
-
