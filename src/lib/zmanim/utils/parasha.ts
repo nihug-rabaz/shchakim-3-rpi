@@ -37,46 +37,46 @@ export function getParashaSpecial(jsDate: Date): string {
             if (rd >= youd_heth.add(70).abs())  parasha = 'ויגש';
             if (rd >= youd_heth.add(77).abs())  parasha = 'ויחי';
             if (rd >= youd_heth.add(84).abs())  parasha = 'שמות';
-            if (rd >= youd_heth.add(91).abs())  parasha = 'וארא'
-            if (rd >= youd_heth.add(98).abs())  parasha = 'בא'
-            if (rd >= youd_heth.add(105).abs()) parasha = 'בשלח'
-            if (rd >= youd_heth.add(112).abs()) parasha = 'יתרו'
-            if (rd >= youd_heth.add(119).abs()) parasha = 'משפטים'
-            if (rd >= youd_heth.add(126).abs()) parasha = 'תרומה'
-            if (rd >= youd_heth.add(133).abs()) parasha = 'תצוה'
-            if (rd >= youd_heth.add(140).abs()) parasha = 'כי תשא'
-            if (rd >= youd_heth.add(147).abs()) parasha = 'ויקהל'
-            if (rd >= youd_heth.add(154).abs()) parasha = 'פקודי'
-            if (rd >= youd_heth.add(161).abs()) parasha = 'ויקרא'
-            if (rd >= youd_heth.add(168).abs()) parasha = 'צו'
-            if (rd >= youd_heth.add(175).abs()) parasha = 'שמיני'
-            if (rd >= youd_heth.add(182).abs()) parasha = 'תזריע'
-            if (rd >= youd_heth.add(189).abs()) parasha = 'מצורע'
-            if (rd >= youd_heth.add(196).abs()) parasha = 'אחרי מות'
-            if (rd >= youd_heth.add(203).abs()) parasha = 'שבת חול המועד'
-            if (rd >= youd_heth.add(210).abs()) parasha = 'קדושים'
-            if (rd >= youd_heth.add(217).abs()) parasha = 'אמר'
-            if (rd >= youd_heth.add(224).abs()) parasha = 'בהר'
-            if (rd >= youd_heth.add(231).abs()) parasha = 'בחוקותי'
-            if (rd >= youd_heth.add(238).abs()) parasha = 'במדבר'
-            if (rd >= youd_heth.add(245).abs()) parasha = 'נשא'
-            if (rd >= youd_heth.add(252).abs()) parasha = 'בהעלתך'
-            if (rd >= youd_heth.add(259).abs()) parasha = 'שלח לך'
-            if (rd >= youd_heth.add(266).abs()) parasha = 'קרח'
-            if (rd >= youd_heth.add(273).abs()) parasha = 'חקת'
-            if (rd >= youd_heth.add(280).abs()) parasha = 'בלק'
-            if (rd >= youd_heth.add(287).abs()) parasha = 'פנחס'
-            if (rd >= youd_heth.add(294).abs()) parasha = 'מטות'
-            if (rd >= youd_heth.add(301).abs()) parasha = 'מסעי'
-            if (rd >= youd_heth.add(308).abs()) parasha = 'דברים'
-            if (rd >= youd_heth.add(315).abs()) parasha = 'ואתחנן'
-            if (rd >= youd_heth.add(322).abs()) parasha = 'עקב'
-            if (rd >= youd_heth.add(329).abs()) parasha = 'ראה'
-            if (rd >= youd_heth.add(336).abs()) parasha = 'שפטים'
-            if (rd >= youd_heth.add(343).abs()) parasha = 'כי תצא'
-            if (rd >= youd_heth.add(350).abs()) parasha = 'כי תבוא'
-            if (rd >= youd_heth.add(357).abs()) parasha = 'נצבים-וילך'
-            if (rd >= youd_heth.add(364).abs()) parasha = 'האזינו'
+            if (rd >= youd_heth.add(91).abs())  parasha = 'וארא';
+            if (rd >= youd_heth.add(98).abs())  parasha = 'בא';
+            if (rd >= youd_heth.add(105).abs()) parasha = 'בשלח';
+            if (rd >= youd_heth.add(112).abs()) parasha = 'יתרו';
+            if (rd >= youd_heth.add(119).abs()) parasha = 'משפטים';
+            if (rd >= youd_heth.add(126).abs()) parasha = 'תרומה';
+            if (rd >= youd_heth.add(133).abs()) parasha = 'תצוה';
+            if (rd >= youd_heth.add(140).abs()) parasha = 'כי תשא';
+            if (rd >= youd_heth.add(147).abs()) parasha = 'ויקהל';
+            if (rd >= youd_heth.add(154).abs()) parasha = 'פקודי';
+            if (rd >= youd_heth.add(161).abs()) parasha = 'ויקרא';
+            if (rd >= youd_heth.add(168).abs()) parasha = 'צו';
+            if (rd >= youd_heth.add(175).abs()) parasha = 'שמיני';
+            if (rd >= youd_heth.add(182).abs()) parasha = 'תזריע';
+            if (rd >= youd_heth.add(189).abs()) parasha = 'מצורע';
+            if (rd >= youd_heth.add(196).abs()) parasha = 'אחרי מות';
+            if (rd >= youd_heth.add(203).abs()) parasha = 'שבת חול המועד';
+            if (rd >= youd_heth.add(210).abs()) parasha = 'קדושים';
+            if (rd >= youd_heth.add(217).abs()) parasha = 'אמר';
+            if (rd >= youd_heth.add(224).abs()) parasha = 'בהר';
+            if (rd >= youd_heth.add(231).abs()) parasha = 'בחוקותי';
+            if (rd >= youd_heth.add(238).abs()) parasha = 'במדבר';
+            if (rd >= youd_heth.add(245).abs()) parasha = 'נשא';
+            if (rd >= youd_heth.add(252).abs()) parasha = 'בהעלתך';
+            if (rd >= youd_heth.add(259).abs()) parasha = 'שלח לך';
+            if (rd >= youd_heth.add(266).abs()) parasha = 'קרח';
+            if (rd >= youd_heth.add(273).abs()) parasha = 'חקת';
+            if (rd >= youd_heth.add(280).abs()) parasha = 'בלק';
+            if (rd >= youd_heth.add(287).abs()) parasha = 'פנחס';
+            if (rd >= youd_heth.add(294).abs()) parasha = 'מטות';
+            if (rd >= youd_heth.add(301).abs()) parasha = 'מסעי';
+            if (rd >= youd_heth.add(308).abs()) parasha = 'דברים';
+            if (rd >= youd_heth.add(315).abs()) parasha = 'ואתחנן';
+            if (rd >= youd_heth.add(322).abs()) parasha = 'עקב';
+            if (rd >= youd_heth.add(329).abs()) parasha = 'ראה';
+            if (rd >= youd_heth.add(336).abs()) parasha = 'שפטים';
+            if (rd >= youd_heth.add(343).abs()) parasha = 'כי תצא';
+            if (rd >= youd_heth.add(350).abs()) parasha = 'כי תבוא';
+            if (rd >= youd_heth.add(357).abs()) parasha = 'נצבים-וילך';
+            if (rd >= youd_heth.add(364).abs()) parasha = 'האזינו';
         }
         
         else if (year === 5776 || year === 5779) {
@@ -828,5 +828,5 @@ export function getParashaSpecial(jsDate: Date): string {
         }        
     }
 
-    return parasha
+    return parasha;
 }
