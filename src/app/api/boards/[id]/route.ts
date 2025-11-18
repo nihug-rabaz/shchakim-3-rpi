@@ -17,9 +17,9 @@ type BoardUpdateData = {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const boardId = params.id;
+  const { id: boardId } = await params;
 
   if (!boardId) {
     return NextResponse.json({ error: 'board id required' }, { status: 400 });
@@ -63,9 +63,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const boardId = params.id;
+  const { id: boardId } = await params;
 
   if (!boardId) {
     return NextResponse.json({ error: 'board id required' }, { status: 400 });
