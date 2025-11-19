@@ -46,6 +46,7 @@ export async function GET(req: Request) {
       externalContent = await displayContentResponse.json();
       console.log(`[PROXY] Display-content: received external display content for ${boardId}`);
       console.log(`[PROXY] Display-content: externalContent.boardInfo?.unit_logo:`, externalContent?.boardInfo?.unit_logo);
+      console.log(`[PROXY] Display-content: externalContent.fab:`, externalContent?.fab);
     } else {
       console.log(`[PROXY] Display-content: display-content error status ${displayContentResponse.status}`);
     }
@@ -59,7 +60,25 @@ export async function GET(req: Request) {
       ? boardInfo.theme.gradient
       : [themePrimary, '#145a43'];
 
-    const showFab = boardInfo.show_fab !== false;
+    // FAB can come from externalContent or boardInfo
+    // Priority: externalContent.fab > boardInfo.show_fab
+    let fabEnabled = false;
+    let fabCommand = '/fab-off';
+    
+    if (externalContent?.fab) {
+      // Use fab from externalContent if it exists
+      fabEnabled = externalContent.fab.enabled === true;
+      fabCommand = externalContent.fab.command || (fabEnabled ? '/fab-on' : '/fab-off');
+      console.log(`[PROXY] Display-content: Using fab from externalContent:`, externalContent.fab);
+    } else {
+      // Fallback to boardInfo.show_fab
+      fabEnabled = boardInfo.show_fab !== false;
+      fabCommand = fabEnabled ? '/fab-on' : '/fab-off';
+      console.log(`[PROXY] Display-content: Using fab from boardInfo.show_fab:`, boardInfo.show_fab);
+    }
+    
+    console.log(`[PROXY] Display-content: final fab - enabled: ${fabEnabled}, command: ${fabCommand}`);
+    
     const durations = boardInfo.durations || {};
     
     let emergency = null;
@@ -178,8 +197,8 @@ export async function GET(req: Request) {
       theme: { primaryHex: themePrimary, gradient: themeGradient },
       background: { type: 'gradient', colors: themeGradient },
       fab: {
-        enabled: showFab,
-        command: showFab ? '/fab-on' : '/fab-off'
+        enabled: fabEnabled,
+        command: fabCommand
       }
     };
 

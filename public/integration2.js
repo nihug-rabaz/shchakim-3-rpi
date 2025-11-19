@@ -47,6 +47,10 @@ class LetterIntegration {
       this.updateDailyTimes();
       this.setupFonts();
       this.setupPeriodicUpdates();
+      // Update credit position after layout is set up
+      setTimeout(() => {
+        this.updateCredit();
+      }, 500);
     } catch (error) {
       console.error('Failed to initialize Letter integration:', error);
     }
@@ -185,6 +189,10 @@ class LetterIntegration {
           this.updateTheme({ primaryHex: themePrimary, gradient: (data?.background?.colors || data?.theme?.gradient) });
           this.updateParasha();
           this.updateOrganization();
+          // Update credit position after content loads
+          setTimeout(() => {
+            this.updateCredit();
+          }, 100);
           this.updateLetter();
         } catch (e) {
           console.warn('Failed to parse cached content', e);
@@ -446,6 +454,65 @@ class LetterIntegration {
       } else if (this.config?.organization?.name) {
         orgElement.textContent = this.config.organization.name;
       }
+    }
+  }
+
+  updateCredit() {
+    // Find rectangle-26-7kVli2 to get its position (for letter page)
+    const referenceElement = document.querySelector('body > div > div.rectangle-26-7kVli2') || 
+                             document.querySelector('.rectangle-26-7kVli2') ||
+                             document.querySelector('[data-id*="rectangle-26"]');
+
+    let creditElement = document.getElementById('shchakim-credit');
+    
+    if (!creditElement) {
+      // Create credit element if it doesn't exist
+      creditElement = document.createElement('div');
+      creditElement.id = 'shchakim-credit';
+      creditElement.setAttribute('dir', 'rtl');
+      creditElement.textContent = 'פותח ע"י ניהול הידע וההנגשה מטה הרבנות הצבאית';
+      document.body.appendChild(creditElement);
+      
+      // Add resize listener to update position on window resize
+      if (!this._creditResizeListener) {
+        this._creditResizeListener = () => {
+          this.updateCredit();
+        };
+        window.addEventListener('resize', this._creditResizeListener);
+      }
+    }
+
+    // Position the credit element
+    if (referenceElement) {
+      const rect = referenceElement.getBoundingClientRect();
+      creditElement.style.position = 'fixed';
+      creditElement.style.left = '50%';
+      creditElement.style.transform = 'translateX(-50%)';
+      creditElement.style.top = `${rect.top}px`;
+      creditElement.style.zIndex = '2147483646';
+      creditElement.style.color = '#ffffff';
+      creditElement.style.fontSize = '14px';
+      creditElement.style.fontFamily = "'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', sans-serif";
+      creditElement.style.textAlign = 'center';
+      creditElement.style.pointerEvents = 'none';
+      creditElement.style.opacity = '0.8';
+      creditElement.style.whiteSpace = 'nowrap';
+      console.log('[CREDIT] Positioned credit at top:', rect.top, 'px');
+    } else {
+      // Fallback positioning if reference element not found - center left of screen
+      creditElement.style.position = 'fixed';
+      creditElement.style.left = '50%';
+      creditElement.style.transform = 'translateX(-50%)';
+      creditElement.style.top = '50%';
+      creditElement.style.zIndex = '2147483646';
+      creditElement.style.color = '#ffffff';
+      creditElement.style.fontSize = '14px';
+      creditElement.style.fontFamily = "'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', sans-serif";
+      creditElement.style.textAlign = 'center';
+      creditElement.style.pointerEvents = 'none';
+      creditElement.style.opacity = '0.8';
+      creditElement.style.whiteSpace = 'nowrap';
+      console.warn('[CREDIT] Reference element not found, using fallback positioning');
     }
   }
 
