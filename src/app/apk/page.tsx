@@ -6,9 +6,15 @@ export default function ApkPage() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('shchakim_force_reload', '1');
+    }
     console.log('[APK] Showing emergency GIF, will return to display after 5 seconds');
     const timer = setTimeout(() => {
       console.log('[APK] Returning to display');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('shchakim_force_reload', '1');
+      }
       router.push('/display');
     }, 5000);
 

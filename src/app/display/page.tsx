@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BoardManager from '@/utils/BoardManager';
 import { QRCodeSVG } from 'qrcode.react';
@@ -26,9 +26,26 @@ export default function DisplayPage() {
   const [hasShownInitialVideo, setHasShownInitialVideo] = useState(false);
   const [showFab, setShowFab] = useState(true);
   const [durations, setDurations] = useState({ letter: 90, halacha: 30 });
+  const [iframeReloadKey, setIframeReloadKey] = useState(0);
   const lastFabCommandRef = useRef<string | null>(null);
   const sliderFrameRef = useRef<HTMLIFrameElement>(null);
   const letterFrameRef = useRef<HTMLIFrameElement>(null);
+
+  const forceReloadDisplayContent = useCallback(() => {
+    console.log('[DISPLAY] Forcing iframe reload to sync remote theme/colors');
+    setFramesLoaded({ slider: false, letter: false });
+    setShowLoadVideo(true);
+    setIframeReloadKey((prev) => prev + 1);
+  }, []);
+
+  const consumeEmergencyReloadFlag = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const flag = sessionStorage.getItem('shchakim_force_reload');
+    if (flag) {
+      // Don't remove flag yet - keep it until iframe sends reload message
+      forceReloadDisplayContent();
+    }
+  }, [forceReloadDisplayContent]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -37,8 +54,18 @@ export default function DisplayPage() {
         lastFabCommandRef.current = savedCommand;
         console.log('[DISPLAY] Loaded last FAB command from storage:', savedCommand);
       }
+      consumeEmergencyReloadFlag();
+      const onVisibilityChange = () => {
+        if (!document.hidden) {
+          consumeEmergencyReloadFlag();
+        }
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      return () => {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      };
     }
-  }, []);
+  }, [consumeEmergencyReloadFlag]);
 
   const claimUrl = useMemo(() => {
     if (typeof window === 'undefined' || !boardId) return '';
@@ -139,6 +166,9 @@ export default function DisplayPage() {
       if (event.data?.type === 'emergency-video') {
         console.log('[DISPLAY] Emergency video requested, navigating to:', event.data?.command || '/apk');
         const emergencyCommand = event.data?.command || '/apk';
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('shchakim_force_reload', '1');
+        }
         router.push(emergencyCommand);
         return;
       }
@@ -285,6 +315,75 @@ export default function DisplayPage() {
       }
     };
   }, [boardInfo?.linked]);
+
+  // Send reload-content message to iframes when they load after emergency return
+  useEffect(() => {
+    if (!boardInfo?.linked || !framesLoaded.slider) return;
+    
+    const shouldReload = typeof window !== 'undefined' && 
+      sessionStorage.getItem('shchakim_force_reload');
+    
+    if (shouldReload) {
+      console.log('[DISPLAY] Sending reload-content message to iframes');
+      const sliderFrame = sliderFrameRef.current;
+      const letterFrame = letterFrameRef.current;
+      
+      // Wait a bit for iframe to be fully ready
+      const timeoutId = setTimeout(() => {
+        if (sliderFrame?.contentWindow) {
+          sliderFrame.contentWindow.postMessage({ type: 'reload-content' }, '*');
+        }
+        if (letterFrame?.contentWindow) {
+          letterFrame.contentWindow.postMessage({ type: 'reload-content' }, '*');
+        }
+        // Remove flag after sending message
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('shchakim_force_reload');
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [framesLoaded.slider, framesLoaded.letter, boardInfo?.linked]);
+
+  // Also check flag periodically in case iframe was already loaded
+  useEffect(() => {
+    if (!boardInfo?.linked) return;
+    
+    const checkAndReload = () => {
+      const shouldReload = typeof window !== 'undefined' && 
+        sessionStorage.getItem('shchakim_force_reload');
+      
+      if (shouldReload && framesLoaded.slider) {
+        console.log('[DISPLAY] Sending reload-content message to iframes (periodic check)');
+        const sliderFrame = sliderFrameRef.current;
+        const letterFrame = letterFrameRef.current;
+        
+        if (sliderFrame?.contentWindow) {
+          sliderFrame.contentWindow.postMessage({ type: 'reload-content' }, '*');
+        }
+        if (letterFrame?.contentWindow) {
+          letterFrame.contentWindow.postMessage({ type: 'reload-content' }, '*');
+        }
+        // Remove flag after sending message
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('shchakim_force_reload');
+        }
+      }
+    };
+    
+    // Check immediately
+    checkAndReload();
+    
+    // Check every 500ms for a short period
+    const intervalId = setInterval(checkAndReload, 500);
+    const timeoutId = setTimeout(() => clearInterval(intervalId), 5000);
+    
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [boardInfo?.linked, framesLoaded.slider]);
 
   useEffect(() => {
     if (showLoadVideo) {
@@ -558,8 +657,9 @@ export default function DisplayPage() {
       )}
 
       <iframe
+        key={`slider-${iframeReloadKey}`}
         ref={sliderFrameRef}
-        src="/html.html"
+        src={`/html.html?reload=${iframeReloadKey}`}
         style={{
           ...iframeStyle,
           opacity: currentView === 'slider' && allFramesLoaded && !showLoadVideo ? 1 : 0,
@@ -572,8 +672,9 @@ export default function DisplayPage() {
       />
 
       <iframe
+        key={`letter-${iframeReloadKey}`}
         ref={letterFrameRef}
-        src="/html2.html"
+        src={`/html2.html?reload=${iframeReloadKey}`}
         style={{
           ...iframeStyle,
           opacity: currentView === 'letter' && allFramesLoaded && !showLoadVideo ? 1 : 0,

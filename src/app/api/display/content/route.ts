@@ -39,11 +39,13 @@ export async function GET(req: Request) {
 
     const boardInfo = await boardInfoResponse.json();
     console.log(`[PROXY] Display-content: received board info for ${boardId}`);
+    console.log(`[PROXY] Display-content: boardInfo.unit_logo:`, boardInfo.unit_logo);
     
     let externalContent = null;
     if (displayContentResponse.ok) {
       externalContent = await displayContentResponse.json();
       console.log(`[PROXY] Display-content: received external display content for ${boardId}`);
+      console.log(`[PROXY] Display-content: externalContent.boardInfo?.unit_logo:`, externalContent?.boardInfo?.unit_logo);
     } else {
       console.log(`[PROXY] Display-content: display-content error status ${displayContentResponse.status}`);
     }
@@ -169,7 +171,9 @@ export async function GET(req: Request) {
         base_description: boardInfo.base_description,
         location: boardInfo.location,
         user_id: boardInfo.user_id,
-        theme: { primaryHex: themePrimary, gradient: themeGradient }
+        theme: { primaryHex: themePrimary, gradient: themeGradient },
+        // unit_logo can come from boardInfo or externalContent.boardInfo
+        unit_logo: externalContent?.boardInfo?.unit_logo || boardInfo.unit_logo || null
       },
       theme: { primaryHex: themePrimary, gradient: themeGradient },
       background: { type: 'gradient', colors: themeGradient },

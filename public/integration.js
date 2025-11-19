@@ -151,13 +151,33 @@ class ShchakimIntegration {
       this.setupLiveDate();
       this.setupParasha();
       this.updateOrganization();
+      if (this.content) {
+        this.updateUnitLogo();
+      }
       this.setupSlider();
+      
+      // Update theme again after slider is created to ensure colors are applied
+      if (this.content) {
+        const themePrimary = this.content?.theme?.primaryHex || this.content?.boardInfo?.theme?.primaryHex || this.themeColor || '#054a36';
+        const backgroundColors = this.content?.background?.colors || this.content?.theme?.gradient || null;
+        this.updateTheme({ 
+          primaryHex: themePrimary, 
+          gradient: backgroundColors,
+          backgroundColors: backgroundColors
+        });
+      }
       
       setTimeout(() => {
         if (this.content && this.content.prayers) {
           this.updatePrayerTimes(this.content.prayers);
         }
       }, 1000);
+      
+      // Reload content after 10 seconds to ensure colors are synced from server
+      setTimeout(() => {
+        console.log('[INIT] Reloading content after 10 seconds to sync colors from server');
+        this.loadContent();
+      }, 10000);
     } catch (error) {
       console.error('Failed to initialize Shchakim integration:', error);
     }
@@ -498,6 +518,36 @@ class ShchakimIntegration {
     }
   }
 
+  updateUnitLogo() {
+    // Try multiple selectors to find the logo image
+    const logoSelectors = [
+      'body > div.container-center-horizontal > div > img.x5-1-TP2yIe',
+      'body > div > img.x5-1-7kVli2',
+      'img.x5-1-TP2yIe',
+      'img.x5-1-7kVli2'
+    ];
+    
+    const logoElement = this.getFirstElement(logoSelectors);
+    
+    if (!logoElement) {
+      console.warn('[LOGO] Logo element not found');
+      return;
+    }
+
+    const unitLogo = this.content?.boardInfo?.unit_logo;
+    
+    if (unitLogo && unitLogo.image_url) {
+      console.log('[LOGO] Updating logo to:', unitLogo.image_url);
+      logoElement.src = unitLogo.image_url;
+      logoElement.alt = unitLogo.name || 'Unit Logo';
+      // Ensure image is visible
+      logoElement.style.display = '';
+    } else {
+      console.log('[LOGO] No unit_logo from API, keeping default logo (Rabanut logo)');
+      // Don't change the image - keep the default Rabanut logo
+    }
+  }
+
   setupLiveClock() {
     const clockElement = this.getFirstElement([
       '[data-role="clock"]',
@@ -603,9 +653,17 @@ class ShchakimIntegration {
       this.themeColor = themePrimary;
       
       await this.updatePrayerTimes(data.prayers);
-      this.updateTheme({ primaryHex: themePrimary, gradient: (data?.background?.colors || data?.theme?.gradient) });
+      // Pass background.colors directly to ensure it's used
+      const backgroundColors = data?.background?.colors || data?.theme?.gradient || null;
+      console.log('[LOAD] Background colors from server:', backgroundColors);
+      this.updateTheme({ 
+        primaryHex: themePrimary, 
+        gradient: backgroundColors,
+        backgroundColors: backgroundColors // Also pass as separate property for clarity
+      });
       await this.loadBoardInfo();
       this.updateOrganization();
+      this.updateUnitLogo();
       
       const contentChanged = !oldContent || 
         JSON.stringify(oldContent?.updates) !== JSON.stringify(data?.updates) ||
@@ -1541,12 +1599,21 @@ class ShchakimIntegration {
     this.themeColor = theme.primaryHex || this.themeColor || '#054a36';
     
     // Prefer provided gradient/colors from payload
+    // Check in order: theme.backgroundColors, theme.gradient, this.content.background.colors
     let gradientCss = '';
-    const colors = Array.isArray(theme?.gradient) ? theme.gradient : Array.isArray(this.content?.background?.colors) ? this.content.background.colors : null;
+    const colors = Array.isArray(theme?.backgroundColors) ? theme.backgroundColors 
+      : Array.isArray(theme?.gradient) ? theme.gradient 
+      : Array.isArray(this.content?.background?.colors) ? this.content.background.colors 
+      : null;
+    
+    console.log('[THEME] Updating theme with colors:', colors, 'primaryHex:', this.themeColor);
+    
     if (colors && colors.length >= 2) {
       gradientCss = `linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`;
+      console.log('[THEME] Using gradient:', gradientCss);
     } else {
       gradientCss = `linear-gradient(135deg, ${this.themeColor} 0%, ${this.themeColor} 100%)`;
+      console.log('[THEME] Using solid color:', gradientCss);
     }
     this.gradientCss = gradientCss;
     document.body.style.backgroundImage = gradientCss;
@@ -2777,6 +2844,9 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
     window.addEventListener('message', (event) => {
       if (event.data.type === 'theme-update') {
         this.updateTheme(event.data.theme);
+      } else if (event.data.type === 'reload-content') {
+        console.log('[INTEGRATION] Received reload-content message, forcing content reload');
+        this.loadContent();
       }
     });
   }
