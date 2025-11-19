@@ -11,11 +11,22 @@ class ShchakimIntegration {
     this.boardInfo = null;
     this.imageCache = new Map();
     this.lastFabCommand = null;
+    this.prayerRotationIntervals = {};
+    this.prayerRotationIndices = {};
+    this.lastEmergencyShown = null;
     if (typeof window !== 'undefined' && window.localStorage) {
       const savedCommand = localStorage.getItem('shchakim_last_fab_command_sent');
       if (savedCommand) {
         this.lastFabCommand = savedCommand;
         console.log('[FAB] Loaded last FAB command from storage:', savedCommand);
+      }
+      const savedEmergency = localStorage.getItem('shchakim_last_emergency_shown');
+      if (savedEmergency) {
+        try {
+          this.lastEmergencyShown = JSON.parse(savedEmergency);
+        } catch (e) {
+          this.lastEmergencyShown = null;
+        }
       }
     }
     this.init();
@@ -545,6 +556,43 @@ class ShchakimIntegration {
       const data = await response.json();
       const oldContent = this.content;
       this.content = data;
+      
+      if (data?.emergency?.active === true) {
+        const emergencyCommand = data.emergency.command || '/apk';
+        const emergencyKey = `${emergencyCommand}_${Date.now()}`;
+        const now = Date.now();
+        
+        if (this.lastEmergencyShown) {
+          const timeSinceLastEmergency = now - this.lastEmergencyShown.timestamp;
+          const fiveMinutes = 5 * 60 * 1000;
+          
+          if (timeSinceLastEmergency < fiveMinutes && this.lastEmergencyShown.command === emergencyCommand) {
+            console.log('[EMERGENCY] Emergency already shown recently, skipping. Time since:', Math.floor(timeSinceLastEmergency / 1000), 'seconds');
+            return;
+          }
+        }
+        
+        console.log('[EMERGENCY] Emergency active, navigating to:', emergencyCommand);
+        this.lastEmergencyShown = {
+          command: emergencyCommand,
+          timestamp: now
+        };
+        
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('shchakim_last_emergency_shown', JSON.stringify(this.lastEmergencyShown));
+        }
+        
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ 
+            type: 'emergency-video',
+            command: emergencyCommand
+          }, '*');
+        } else {
+          window.location.href = emergencyCommand;
+        }
+        return;
+      }
+      
       const locObj = data?.boardInfo?.location;
       if (locObj?.latitude && locObj?.longitude) {
         this.latitude = Number(locObj.latitude);
@@ -943,150 +991,174 @@ class ShchakimIntegration {
     
     this.prayerRetryCount = 0;
     
-    const weekdayPrayerMap = {};
+    const weekdayPrayerGroups = {
+      shacharit: [],
+      mincha: [],
+      arvit: []
+    };
+    
     weekdayPrayers.forEach((prayer) => {
       const prayerTitleLower = prayer.title.toLowerCase();
       if (prayerTitleLower.includes('שחרית') || prayerTitleLower.includes('shacharit')) {
-        if (!weekdayPrayerMap['shacharit']) {
-          weekdayPrayerMap['shacharit'] = prayer;
-        }
+        weekdayPrayerGroups.shacharit.push(prayer);
       } else if (prayerTitleLower.includes('מנחה') || prayerTitleLower.includes('mincha')) {
-        if (!weekdayPrayerMap['mincha']) {
-          weekdayPrayerMap['mincha'] = prayer;
-        }
+        weekdayPrayerGroups.mincha.push(prayer);
       } else if (prayerTitleLower.includes('ערבית') || prayerTitleLower.includes('arvit') || prayerTitleLower.includes('maariv')) {
-        if (!weekdayPrayerMap['arvit']) {
-          weekdayPrayerMap['arvit'] = prayer;
-        }
+        weekdayPrayerGroups.arvit.push(prayer);
       }
     });
     
-    const orderedPrayers = [
-      weekdayPrayerMap['shacharit'],
-      weekdayPrayerMap['mincha'],
-      weekdayPrayerMap['arvit']
-    ].filter(p => p !== undefined);
+    const timeToMinutes = (timeStr) => {
+      if (!timeStr || timeStr === '--:--') return Infinity;
+      const [h, m] = timeStr.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
     
-    console.log(`[PRAYER] Mapped prayers: shacharit=${!!weekdayPrayerMap['shacharit']}, mincha=${!!weekdayPrayerMap['mincha']}, arvit=${!!weekdayPrayerMap['arvit']}`);
+    const sortPrayersByTime = (prayers) => {
+      return prayers.map(p => ({
+        prayer: p,
+        time: this.calculatePrayerTime(p, weekdayZmanimData),
+        minutes: 0
+      })).map(item => {
+        item.minutes = timeToMinutes(item.time);
+        return item;
+      }).sort((a, b) => a.minutes - b.minutes);
+    };
     
-    orderedPrayers.forEach((prayer, index) => {
-      let element = null;
+    const sortedShacharit = sortPrayersByTime(weekdayPrayerGroups.shacharit);
+    const sortedMincha = sortPrayersByTime(weekdayPrayerGroups.mincha);
+    const sortedArvit = sortPrayersByTime(weekdayPrayerGroups.arvit);
+    
+    const minyanLetters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י'];
+    
+    const getMinyanLabel = (index) => {
+      return index < minyanLetters.length ? minyanLetters[index] : String(index + 1);
+    };
+    
+    if (this.prayerRotationIntervals) {
+      Object.values(this.prayerRotationIntervals).forEach(interval => clearInterval(interval));
+    }
+    this.prayerRotationIntervals = {};
+    this.prayerRotationIndices = {};
+    
+    const updatePrayerDisplay = (prayerType, sortedPrayers, elementIndex) => {
+      if (sortedPrayers.length === 0) return;
       
-      if (prayerElements[index]) {
-        element = prayerElements[index];
-        console.log(`[PRAYER] Using weekday element at index ${index} for ${prayer.title}`);
-      } else {
-        console.warn(`[PRAYER] No element found at index ${index} for weekday prayer ${prayer.title}`);
+      const element = prayerElements[elementIndex];
+      if (!element) return;
+      
+      const currentIndex = this.prayerRotationIndices[prayerType] || 0;
+      const current = sortedPrayers[currentIndex % sortedPrayers.length];
+      const minyanIndex = currentIndex % sortedPrayers.length;
+      const minyanLabel = getMinyanLabel(minyanIndex);
+      
+      const timeSlot = `weekday-${elementIndex + 1}`;
+      element.setAttribute('data-prayer-slot', timeSlot);
+      element.textContent = current.time;
+      element.innerText = current.time;
+      element.innerHTML = current.time;
+      
+      const prayer = current.prayer;
+      let cardElement = element.closest('[class*="rectangle"]');
+      if (!cardElement) {
+        cardElement = element.parentElement;
+        while (cardElement && !cardElement.classList.toString().includes('rectangle') && cardElement !== document.body) {
+          cardElement = cardElement.parentElement;
+        }
       }
       
-      if (element) {
-        const timeSlot = `weekday-${index + 1}`;
-        element.setAttribute('data-prayer-slot', timeSlot);
-        const timeText = this.calculatePrayerTime(prayer, weekdayZmanimData);
-        console.log(`[PRAYER] Processing prayer: ${prayer.title} to ${timeText}`);
+      const prayerTitleLower = prayer.title.toLowerCase();
+      let baseTitle = prayer.title;
+      
+      if (prayerTitleLower.includes('שחרית') || prayerTitleLower.includes('shacharit')) {
+        baseTitle = sortedPrayers.length > 1 ? `שחרית מניין ${minyanLabel}` : 'שחרית';
+      } else if (prayerTitleLower.includes('מנחה') || prayerTitleLower.includes('mincha')) {
+        baseTitle = sortedPrayers.length > 1 ? `מנחה מניין ${minyanLabel}` : 'מנחה';
+      } else if (prayerTitleLower.includes('ערבית') || prayerTitleLower.includes('arvit') || prayerTitleLower.includes('maariv') || prayerTitleLower.includes('קבלת שבת')) {
+        baseTitle = sortedPrayers.length > 1 ? `ערבית מניין ${minyanLabel}` : 'ערבית';
+      }
+      
+      if (cardElement) {
+        const elementDataId = element.getAttribute('data-id');
+        const weekdayTitleIds = ['1:51', '1:52', '1:53'];
         
-        let cardElement = element.closest('[class*="rectangle"]');
-        if (!cardElement) {
-          cardElement = element.parentElement;
-          while (cardElement && !cardElement.classList.toString().includes('rectangle') && cardElement !== document.body) {
-            cardElement = cardElement.parentElement;
-          }
-        }
-        
-        const prayerTitleLower = prayer.title.toLowerCase();
-        let baseTitle = prayer.title;
-        
-        if (prayerTitleLower.includes('שחרית') || prayerTitleLower.includes('shacharit')) {
-          baseTitle = 'שחרית';
-        } else if (prayerTitleLower.includes('מנחה') || prayerTitleLower.includes('mincha')) {
-          baseTitle = 'מנחה';
-        } else if (prayerTitleLower.includes('ערבית') || prayerTitleLower.includes('arvit') || prayerTitleLower.includes('maariv') || prayerTitleLower.includes('קבלת שבת')) {
-          baseTitle = 'ערבית';
-        }
-        
-        element.textContent = timeText;
-        element.innerText = timeText;
-        element.innerHTML = timeText;
-        console.log(`[PRAYER] Updated time element to ${timeText}`);
-        
-        if (cardElement) {
-          const elementDataId = element.getAttribute('data-id');
-          const weekdayTitleIds = ['1:51', '1:52', '1:53'];
+        let titleInCard = null;
+        if (elementDataId) {
+          const idNum = parseInt(elementDataId.split(':')[1]);
+          const titleId = `1:${idNum - 54}`;
           
-          let titleInCard = null;
-          if (elementDataId) {
-            const idNum = parseInt(elementDataId.split(':')[1]);
-            const titleId = `1:${idNum - 54}`;
-            
-            if (weekdayTitleIds.includes(titleId)) {
-              titleInCard = cardElement.querySelector(`[data-id="${titleId}"].text_label`);
-              if (!titleInCard) {
-                titleInCard = cardElement.querySelector('.text_label');
-              }
-            } else {
+          if (weekdayTitleIds.includes(titleId)) {
+            titleInCard = cardElement.querySelector(`[data-id="${titleId}"].text_label`);
+            if (!titleInCard) {
               titleInCard = cardElement.querySelector('.text_label');
             }
           } else {
             titleInCard = cardElement.querySelector('.text_label');
           }
+        } else {
+          titleInCard = cardElement.querySelector('.text_label');
+        }
+        
+        if (titleInCard) {
+          titleInCard.setAttribute('data-prayer-slot', timeSlot);
+          const titleDataId = titleInCard.getAttribute('data-id');
+          const isShabbatTitle = titleDataId && ['1:50', '1:54', '1:52', '1:150'].includes(titleDataId);
           
-          if (titleInCard) {
-            titleInCard.setAttribute('data-prayer-slot', timeSlot);
-            const titleDataId = titleInCard.getAttribute('data-id');
-            const isShabbatTitle = titleDataId && ['1:50', '1:54', '1:52', '1:150'].includes(titleDataId);
-            
-            if (isShabbatTitle) {
-              console.log(`[PRAYER] Skipping shabbat title element ${titleDataId} for weekday prayer`);
-            } else {
-              const forbiddenShabbatTitles = ['קבלת שבת', 'ערבית מוצאי'];
-              const currentTitleText = titleInCard.textContent.trim();
-              if (forbiddenShabbatTitles.includes(baseTitle)) {
-                console.log(`[PRAYER] Skipping forbidden shabbat title "${baseTitle}" on weekday card`);
-              } else if (currentTitleText !== baseTitle) {
-                titleInCard.textContent = baseTitle;
-                titleInCard.innerText = baseTitle;
-                titleInCard.innerHTML = baseTitle;
-                console.log(`[PRAYER] Updated weekday title from "${currentTitleText}" to "${baseTitle}"`);
-              } else {
-                console.log(`[PRAYER] Weekday title already correct: "${baseTitle}"`);
-              }
+          if (!isShabbatTitle) {
+            const forbiddenShabbatTitles = ['קבלת שבת', 'ערבית מוצאי'];
+            const currentTitleText = titleInCard.textContent.trim();
+            if (!forbiddenShabbatTitles.includes(baseTitle)) {
+              titleInCard.textContent = baseTitle;
+              titleInCard.innerText = baseTitle;
+              titleInCard.innerHTML = baseTitle;
             }
-          } else {
-            const elementDataId = element.getAttribute('data-id');
-            if (elementDataId) {
-              const idNum = parseInt(elementDataId.split(':')[1]);
-              const titleId = `1:${idNum - 54}`;
-              const isShabbatTitle = ['1:50', '1:54', '1:52', '1:150'].includes(titleId);
-              
-              if (!isShabbatTitle) {
-                const titleElement = document.querySelector(`[data-id="${titleId}"].text_label`);
-                if (titleElement) {
-                  titleElement.setAttribute('data-prayer-slot', timeSlot);
-                  titleElement.textContent = baseTitle;
-                  titleElement.innerText = baseTitle;
-                  titleElement.innerHTML = baseTitle;
-                  console.log(`[PRAYER] Updated weekday title at ${titleId} to "${baseTitle}"`);
-                }
-              } else {
-                console.log(`[PRAYER] Skipping shabbat title element ${titleId} for weekday prayer`);
+          }
+        } else {
+          const elementDataId = element.getAttribute('data-id');
+          if (elementDataId) {
+            const idNum = parseInt(elementDataId.split(':')[1]);
+            const titleId = `1:${idNum - 54}`;
+            const isShabbatTitle = ['1:50', '1:54', '1:52', '1:150'].includes(titleId);
+            
+            if (!isShabbatTitle) {
+              const titleElement = document.querySelector(`[data-id="${titleId}"].text_label`);
+              if (titleElement) {
+                titleElement.setAttribute('data-prayer-slot', timeSlot);
+                titleElement.textContent = baseTitle;
+                titleElement.innerText = baseTitle;
+                titleElement.innerHTML = baseTitle;
               }
             }
           }
-          
-          const overlayColor = this.hexToRgba(this.themeColor, this.overlayOpacity);
-          cardElement.style.backgroundColor = overlayColor;
-          cardElement.style.borderRadius = '30px';
-        } else {
-          console.log(`[PRAYER] No card found, but time updated to ${timeText}`);
         }
         
-        if (element.hasAttribute('data-id')) {
-          console.log(`[PRAYER] Time element data-id: ${element.getAttribute('data-id')}`);
-        }
-      } else {
-        console.warn(`[PRAYER] No time element found for prayer ${prayer.title}`);
+        const overlayColor = this.hexToRgba(this.themeColor, this.overlayOpacity);
+        cardElement.style.backgroundColor = overlayColor;
+        cardElement.style.borderRadius = '30px';
+      }
+    };
+    
+    const orderedPrayerTypes = [
+      { type: 'shacharit', prayers: sortedShacharit, index: 0 },
+      { type: 'mincha', prayers: sortedMincha, index: 1 },
+      { type: 'arvit', prayers: sortedArvit, index: 2 }
+    ];
+    
+    orderedPrayerTypes.forEach(({ type, prayers, index }) => {
+      if (prayers.length === 0) return;
+      
+      this.prayerRotationIndices[type] = 0;
+      updatePrayerDisplay(type, prayers, index);
+      
+      if (prayers.length > 1) {
+        this.prayerRotationIntervals[type] = setInterval(() => {
+          this.prayerRotationIndices[type] = (this.prayerRotationIndices[type] + 1) % prayers.length;
+          updatePrayerDisplay(type, prayers, index);
+        }, 30000);
       }
     });
+    
+    console.log(`[PRAYER] Mapped prayers: shacharit=${sortedShacharit.length}, mincha=${sortedMincha.length}, arvit=${sortedArvit.length}`);
     
     console.log(`[PRAYER] Checking for duplicate titles...`);
     const allTitleLabels = document.querySelectorAll('.text_label');
@@ -2140,6 +2212,11 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           if (displayTime) {
             const timeInMs = parseFloat(displayTime) * 1000;
             return Math.max(5000, Math.min(timeInMs, 5 * 60 * 1000));
+          }
+          
+          if (slide.querySelector('.halacha-card')) {
+            const halachaDuration = this.content?.durations?.halacha || 30;
+            return halachaDuration * 1000;
           }
         }
         

@@ -25,10 +25,10 @@ export default function DisplayPage() {
   const [showLoadVideo, setShowLoadVideo] = useState(false);
   const [hasShownInitialVideo, setHasShownInitialVideo] = useState(false);
   const [showFab, setShowFab] = useState(true);
+  const [durations, setDurations] = useState({ letter: 90, halacha: 30 });
   const lastFabCommandRef = useRef<string | null>(null);
   const sliderFrameRef = useRef<HTMLIFrameElement>(null);
   const letterFrameRef = useRef<HTMLIFrameElement>(null);
-  const loadVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -96,6 +96,31 @@ export default function DisplayPage() {
   }, [boardInfo?.linked, boardId]);
 
   useEffect(() => {
+    const loadDurations = async () => {
+      if (!boardId || !boardInfo?.linked) return;
+      
+      try {
+        const response = await fetch(`/api/display/content?boardId=${boardId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.durations) {
+            setDurations({
+              letter: data.durations.letter || 90,
+              halacha: data.durations.halacha || 30
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[DISPLAY] Error loading durations:', error);
+      }
+    };
+
+    if (boardInfo?.linked) {
+      loadDurations();
+    }
+  }, [boardId, boardInfo?.linked]);
+
+  useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       console.log('[DISPLAY] Received message:', event.data);
       if (event.data?.type === 'slider-cycle-complete') {
@@ -103,12 +128,19 @@ export default function DisplayPage() {
           sliderFrameRef.current.contentWindow.postMessage({ type: 'stop-slider' }, '*');
         }
         setCurrentView('letter');
+        const letterDuration = durations.letter * 1000;
         setTimeout(() => {
           setCurrentView('slider');
           if (sliderFrameRef.current?.contentWindow) {
             sliderFrameRef.current.contentWindow.postMessage({ type: 'start-from-halacha' }, '*');
           }
-        }, 90000);
+        }, letterDuration);
+      }
+      if (event.data?.type === 'emergency-video') {
+        console.log('[DISPLAY] Emergency video requested, navigating to:', event.data?.command || '/apk');
+        const emergencyCommand = event.data?.command || '/apk';
+        router.push(emergencyCommand);
+        return;
       }
       if (event.data?.command === '/fab-on' || event.data?.command === '/fab-off') {
         const command = event.data.command;
@@ -130,7 +162,7 @@ export default function DisplayPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [boardId, router]);
+  }, [boardId, router, durations]);
 
   useEffect(() => {
     const loadFabState = async () => {
@@ -255,24 +287,10 @@ export default function DisplayPage() {
   }, [boardInfo?.linked]);
 
   useEffect(() => {
-    if (showLoadVideo && loadVideoRef.current) {
-      console.log('[DISPLAY] Playing load video');
-      const video = loadVideoRef.current;
-      
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('[DISPLAY] Video started playing');
-            video.currentTime = 0;
-          })
-          .catch((error) => {
-            console.error('[DISPLAY] Error playing video:', error);
-          });
-      }
-      
+    if (showLoadVideo) {
+      console.log('[DISPLAY] Showing load GIF');
       const timer = setTimeout(() => {
-        console.log('[DISPLAY] Hiding load video after 5 seconds');
+        console.log('[DISPLAY] Hiding load GIF after 5 seconds');
         setShowLoadVideo(false);
       }, 5000);
       
@@ -281,6 +299,7 @@ export default function DisplayPage() {
       };
     }
   }, [showLoadVideo]);
+
 
   const allFramesLoaded = framesLoaded.slider && framesLoaded.letter;
   const showLoading = isLoading || (boardInfo?.linked && !allFramesLoaded);
@@ -479,22 +498,14 @@ export default function DisplayPage() {
           opacity: 1,
           pointerEvents: 'auto'
         }}>
-          <video
-            ref={loadVideoRef}
-            src="/load.mp4"
-            autoPlay
-            muted
-            playsInline
-            loop={false}
+          <img
+            src="/load.gif"
+            alt="Loading"
             onError={(e) => {
-              console.error('[DISPLAY] Video error:', e);
+              console.error('[DISPLAY] GIF error:', e);
             }}
-            onLoadedData={() => {
-              console.log('[DISPLAY] Video loaded successfully');
-            }}
-            onEnded={() => {
-              console.log('[DISPLAY] Video ended');
-              setShowLoadVideo(false);
+            onLoad={() => {
+              console.log('[DISPLAY] GIF loaded successfully');
             }}
             style={{
               maxWidth: '100%',
@@ -573,6 +584,7 @@ export default function DisplayPage() {
         scrolling="no"
         allow="fullscreen"
       />
+
 
       {showFab && (
         <button
