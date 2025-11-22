@@ -40,6 +40,9 @@ export async function GET(req: Request) {
     const boardInfo = await boardInfoResponse.json();
     console.log(`[PROXY] Display-content: received board info for ${boardId}`);
     console.log(`[PROXY] Display-content: boardInfo.unit_logo:`, boardInfo.unit_logo);
+    const weekdayPrayersCount = (boardInfo.prayers || []).filter((p: any) => p.dayOfWeek === 'weekday').length;
+    const shabbatPrayersCount = (boardInfo.prayers || []).filter((p: any) => p.dayOfWeek === 'shabbat').length;
+    console.log(`[PROXY] Display-content: Total prayers: ${(boardInfo.prayers || []).length}, Weekday: ${weekdayPrayersCount}, Shabbat: ${shabbatPrayersCount}`);
     
     let externalContent = null;
     if (displayContentResponse.ok) {

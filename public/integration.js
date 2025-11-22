@@ -802,6 +802,7 @@ class ShchakimIntegration {
     const weekdayPrayers = prayers.filter(p => p.dayOfWeek === 'weekday');
     const shabbatPrayers = prayers.filter(p => p.dayOfWeek === 'shabbat');
 
+    console.log(`[PRAYER] Total prayers received: ${prayers.length}`);
     console.log(`[PRAYER] Processing both weekday (${weekdayPrayers.length}) and shabbat (${shabbatPrayers.length}) prayers`);
 
     let weekdayZmanimData = null;
@@ -1897,6 +1898,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
       slider.style.left = left + 'px';
       slider.style.zIndex = '2147483000';
       slider.style.pointerEvents = 'none';
+      slider.style.filter = 'drop-shadow(4px 7px 13px #000000)';
       parent.appendChild(slider);
 
       // If original image exists, hide it so only the green slider shows there
@@ -2032,7 +2034,6 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           wrap.style.flexDirection = 'column';
           wrap.style.alignItems = 'center';
           wrap.style.justifyContent = 'center';
-          wrap.style.padding = '36px';
           wrap.style.gap = '20px';
           wrap.style.direction = 'rtl';
           wrap.style.textAlign = 'center';
@@ -2051,30 +2052,27 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           card.style.backgroundColor = 'transparent';
           card.style.borderRadius = '20px';
           card.style.padding = '28px 34px 22px';
-          card.style.maxWidth = '90%';
-          card.style.maxHeight = '80%';
+
           card.style.overflow = 'hidden';
           card.style.direction = 'rtl';
           card.style.textAlign = 'right';
           card.style.position = 'relative';
 
           if (imageUrl) {
-            // אם יש תמונה, מציגים רק את התמונה על כל המרובע (ללא כותרת וללא טקסט)
             card.style.padding = '0';
             card.style.width = '100%';
             card.style.height = '100%';
+            card.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.4)';
             const img = document.createElement('img');
             img.src = imageUrl;
             img.style.width = '100%';
             img.style.height = '100%';
-            img.style.objectFit = 'contain';
+            img.style.objectFit = 'cover';
             img.style.borderRadius = '12px';
             img.style.display = 'block';
             card.appendChild(img);
             wrap.appendChild(card);
-            // לא מוסיפים את heading כשיש תמונה
           } else {
-            // אם אין תמונה, מציגים כותרת וטקסט
             const t = document.createElement('div');
             t.textContent = title || 'עדכון';
             t.style.fontSize = '40px';
@@ -2720,6 +2718,7 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
               card.style.padding = '0';
               card.style.width = '100%';
               card.style.height = '100%';
+              card.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.4)';
               
               if (headingEl) headingEl.style.display = 'none';
               if (titleEl) titleEl.style.display = 'none';
@@ -2729,14 +2728,14 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
                 existingImg.src = finalImageUrl;
                 existingImg.style.width = '100%';
                 existingImg.style.height = '100%';
-                existingImg.style.objectFit = 'contain';
+                existingImg.style.objectFit = 'cover';
                 existingImg.style.marginBottom = '0';
               } else {
                 const img = document.createElement('img');
                 img.src = finalImageUrl;
                 img.style.width = '100%';
                 img.style.height = '100%';
-                img.style.objectFit = 'contain';
+                img.style.objectFit = 'cover';
                 img.style.borderRadius = '12px';
                 img.style.display = 'block';
                 card.innerHTML = '';
@@ -2798,7 +2797,6 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           wrap.style.flexDirection = 'column';
           wrap.style.alignItems = 'center';
           wrap.style.justifyContent = 'center';
-          wrap.style.padding = '36px';
           wrap.style.gap = '20px';
           wrap.style.direction = 'rtl';
           wrap.style.textAlign = 'center';
@@ -2825,22 +2823,20 @@ body * { font-family: 'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Robo
           card.style.position = 'relative';
 
           if (imageUrl) {
-            // אם יש תמונה, מציגים רק את התמונה על כל המרובע (ללא כותרת וללא טקסט)
             card.style.padding = '0';
             card.style.width = '100%';
             card.style.height = '100%';
+            card.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.4)';
             const img = document.createElement('img');
             img.src = imageUrl;
             img.style.width = '100%';
             img.style.height = '100%';
-            img.style.objectFit = 'contain';
+            img.style.objectFit = 'cover';
             img.style.borderRadius = '12px';
             img.style.display = 'block';
             card.appendChild(img);
             wrap.appendChild(card);
-            // לא מוסיפים את heading כשיש תמונה
           } else {
-            // אם אין תמונה, מציגים כותרת וטקסט
             const t = document.createElement('div');
             t.textContent = title || 'עדכון';
             t.style.fontSize = '40px';
