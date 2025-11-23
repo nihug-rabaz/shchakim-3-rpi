@@ -44,6 +44,7 @@ class LetterIntegration {
       this.updateParasha();
       this.updateOrganization();
       this.updateLetter();
+      await this.updateQRCodes();
       this.updateDailyTimes();
       this.setupFonts();
       this.setupPeriodicUpdates();
@@ -194,6 +195,7 @@ class LetterIntegration {
             this.updateCredit();
           }, 100);
           this.updateLetter();
+          await this.updateQRCodes();
         } catch (e) {
           console.warn('Failed to parse cached content', e);
         }
@@ -226,6 +228,7 @@ class LetterIntegration {
             this.updateParasha();
             this.updateOrganization();
             this.updateLetter();
+            await this.updateQRCodes();
           }
         } catch (error) {
           console.warn('Error loading content from server:', error);
@@ -659,6 +662,57 @@ class LetterIntegration {
     }
   }
 
+  async updateQRCodes() {
+    // עדכון ברקודים לפי data-id
+    // link04-1 (1093:184) -> בית הכנסת שלי - QR עם קישור https://shchakim.connect.app/join?code=XXX
+    // link04-2 (1093:186) -> עדכוני הלכה וכשרות - rabaz.co.il
+    // link04-3 (1093:185) -> הלכה יומית - https://2halachot.rabaz.co.il/
+    
+    // בית הכנסת שלי - QR עם קישור מלא
+    let synagogueId = this.content?.boardInfo?.synagogueId || this.content?.boardInfo?.synagogue_id;
+    
+    // אם לא נמצא ב-content, נטען מ-board-info ישירות
+    if ((synagogueId === null || synagogueId === undefined) && this.getBoardId()) {
+      try {
+        const boardId = this.getBoardId();
+        const boardInfoResponse = await fetch(`${this.apiBase}/api/board-info?id=${encodeURIComponent(boardId)}`);
+        if (boardInfoResponse.ok) {
+          const boardInfo = await boardInfoResponse.json();
+          synagogueId = boardInfo.synagogue_id || boardInfo.synagogueId;
+        }
+      } catch (error) {
+        console.warn('[QR] Failed to fetch synagogue_id from board-info:', error);
+      }
+    }
+    
+    if (synagogueId !== null && synagogueId !== undefined && synagogueId !== '') {
+      const formattedId = String(synagogueId).padStart(3, '0'); // פורמט 3 ספרות: 001-999
+      const joinUrl = `https://shchakim-connect.rabaz.co.il/home?code=${formattedId}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}`;
+      const img1 = document.querySelector('img[data-id="1093:184"]');
+      if (img1) {
+        img1.src = qrUrl;
+        img1.setAttribute('src', qrUrl);
+      }
+    }
+    
+    // עדכוני הלכה וכשרות - rabaz.co.il
+    const qrUrl2 = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://rabaz.co.il')}`;
+    const img2 = document.querySelector('img[data-id="1093:186"]');
+    if (img2) {
+      img2.src = qrUrl2;
+      img2.setAttribute('src', qrUrl2);
+    }
+    
+    // הלכה יומית - https://2halachot.rabaz.co.il/
+    const qrUrl3 = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://2halachot.rabaz.co.il/')}`;
+    const img3 = document.querySelector('img[data-id="1093:185"]');
+    if (img3) {
+      img3.src = qrUrl3;
+      img3.setAttribute('src', qrUrl3);
+    }
+  }
+
   getZmanimTime(zmanimData, base) {
     if (!zmanimData || !zmanimData.times) return null;
     const times = zmanimData.times;
@@ -956,6 +1010,7 @@ class LetterIntegration {
         this.updateParasha();
         this.updateOrganization();
         this.updateLetter();
+        await this.updateQRCodes();
         this.updateDailyTimes();
       }
     }, 60000);

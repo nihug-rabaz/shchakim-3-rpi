@@ -195,7 +195,8 @@ export async function GET(req: Request) {
         user_id: boardInfo.user_id,
         theme: { primaryHex: themePrimary, gradient: themeGradient },
         // unit_logo can come from boardInfo or externalContent.boardInfo
-        unit_logo: externalContent?.boardInfo?.unit_logo || boardInfo.unit_logo || null
+        unit_logo: externalContent?.boardInfo?.unit_logo || boardInfo.unit_logo || null,
+        synagogueId: (boardInfo as any).synagogue_id || (boardInfo as any).synagogueId || null
       },
       theme: { primaryHex: themePrimary, gradient: themeGradient },
       background: { type: 'gradient', colors: themeGradient },
