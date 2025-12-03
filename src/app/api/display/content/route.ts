@@ -32,31 +32,52 @@ export async function GET(req: Request) {
       })
     ]);
 
-    if (!boardInfoResponse.ok) {
-      console.log(`[PROXY] Display-content: board-info error status ${boardInfoResponse.status}`);
-      return NextResponse.json({ error: 'Failed to fetch board info' }, { status: boardInfoResponse.status });
+    let boardInfo: any = null;
+    if (boardInfoResponse.ok) {
+      boardInfo = await boardInfoResponse.json();
+      console.log(`[PROXY] Display-content: received board info for ${boardId}`);
+      console.log(`[PROXY] Display-content: boardInfo.unit_logo:`, boardInfo.unit_logo);
+      console.log(`[PROXY] Display-content: boardInfo.synagogue_id:`, (boardInfo as any).synagogue_id, 'Type:', typeof (boardInfo as any).synagogue_id);
+      console.log(`[PROXY] Display-content: boardInfo.synagogueId:`, (boardInfo as any).synagogueId, 'Type:', typeof (boardInfo as any).synagogueId);
+    } else {
+      console.log(`[PROXY] Display-content: board-info error status ${boardInfoResponse.status}, will try to use externalContent`);
     }
-
-    const boardInfo = await boardInfoResponse.json();
-    console.log(`[PROXY] Display-content: received board info for ${boardId}`);
-    console.log(`[PROXY] Display-content: boardInfo.unit_logo:`, boardInfo.unit_logo);
-    const weekdayPrayersCount = (boardInfo.prayers || []).filter((p: any) => p.dayOfWeek === 'weekday').length;
-    const shabbatPrayersCount = (boardInfo.prayers || []).filter((p: any) => p.dayOfWeek === 'shabbat').length;
-    console.log(`[PROXY] Display-content: Total prayers: ${(boardInfo.prayers || []).length}, Weekday: ${weekdayPrayersCount}, Shabbat: ${shabbatPrayersCount}`);
     
     let externalContent = null;
     if (displayContentResponse.ok) {
       externalContent = await displayContentResponse.json();
       console.log(`[PROXY] Display-content: received external display content for ${boardId}`);
       console.log(`[PROXY] Display-content: externalContent.boardInfo?.unit_logo:`, externalContent?.boardInfo?.unit_logo);
+      console.log(`[PROXY] Display-content: externalContent.boardInfo?.synagogue_id:`, externalContent?.boardInfo?.synagogue_id, 'Type:', typeof externalContent?.boardInfo?.synagogue_id);
+      console.log(`[PROXY] Display-content: externalContent.boardInfo?.synagogueId:`, externalContent?.boardInfo?.synagogueId, 'Type:', typeof externalContent?.boardInfo?.synagogueId);
       console.log(`[PROXY] Display-content: externalContent.fab:`, externalContent?.fab);
+      
+      if (!boardInfo && externalContent?.boardInfo) {
+        boardInfo = {
+          linked: true,
+          prayers: externalContent.prayers || [],
+          updates: externalContent.updates || [],
+          letter: externalContent.letter || null,
+          theme: externalContent.theme || externalContent.boardInfo?.theme,
+          ...externalContent.boardInfo
+        };
+        console.log(`[PROXY] Display-content: Using boardInfo from externalContent`);
+      }
     } else {
       console.log(`[PROXY] Display-content: display-content error status ${displayContentResponse.status}`);
+    }
+
+    if (!boardInfo) {
+      return NextResponse.json({ error: 'Failed to fetch board info' }, { status: 500 });
     }
 
     if (!boardInfo.linked) {
       return NextResponse.json({ error: 'Board not linked' }, { status: 404 });
     }
+
+    const weekdayPrayersCount = (boardInfo.prayers || []).filter((p: any) => p.dayOfWeek === 'weekday').length;
+    const shabbatPrayersCount = (boardInfo.prayers || []).filter((p: any) => p.dayOfWeek === 'shabbat').length;
+    console.log(`[PROXY] Display-content: Total prayers: ${(boardInfo.prayers || []).length}, Weekday: ${weekdayPrayersCount}, Shabbat: ${shabbatPrayersCount}`);
 
     const themePrimary = boardInfo?.theme?.primaryHex || boardInfo.themeColor || '#0b3d2e';
     const themeGradient = Array.isArray(boardInfo?.theme?.gradient)
@@ -196,7 +217,16 @@ export async function GET(req: Request) {
         theme: { primaryHex: themePrimary, gradient: themeGradient },
         // unit_logo can come from boardInfo or externalContent.boardInfo
         unit_logo: externalContent?.boardInfo?.unit_logo || boardInfo.unit_logo || null,
-        synagogueId: (boardInfo as any).synagogue_id || (boardInfo as any).synagogueId || null
+        synagogueId: (() => {
+          const id = externalContent?.boardInfo?.synagogue_id || 
+                     externalContent?.boardInfo?.synagogueId || 
+                     (boardInfo as any).synagogue_id || 
+                     (boardInfo as any).synagogueId;
+          console.log(`[PROXY] Display-content: Setting synagogueId in payload:`, id, 'Type:', typeof id);
+          console.log(`[PROXY] Display-content: externalContent.boardInfo?.synagogue_id:`, externalContent?.boardInfo?.synagogue_id);
+          console.log(`[PROXY] Display-content: boardInfo.synagogue_id:`, (boardInfo as any).synagogue_id);
+          return (id !== null && id !== undefined && id !== false && id !== '') ? id : null;
+        })()
       },
       theme: { primaryHex: themePrimary, gradient: themeGradient },
       background: { type: 'gradient', colors: themeGradient },

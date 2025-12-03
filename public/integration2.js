@@ -671,29 +671,54 @@ class LetterIntegration {
     // בית הכנסת שלי - QR עם קישור מלא
     let synagogueId = this.content?.boardInfo?.synagogueId || this.content?.boardInfo?.synagogue_id;
     
+    console.log('[QR] Initial synagogueId from content:', synagogueId, 'Type:', typeof synagogueId);
+    
     // אם לא נמצא ב-content, נטען מ-board-info ישירות
-    if ((synagogueId === null || synagogueId === undefined) && this.getBoardId()) {
+    if ((synagogueId === null || synagogueId === undefined || synagogueId === false || synagogueId === '') && this.getBoardId()) {
       try {
         const boardId = this.getBoardId();
+        console.log('[QR] Fetching synagogueId from board-info for boardId:', boardId);
         const boardInfoResponse = await fetch(`${this.apiBase}/api/board-info?id=${encodeURIComponent(boardId)}`);
         if (boardInfoResponse.ok) {
           const boardInfo = await boardInfoResponse.json();
           synagogueId = boardInfo.synagogue_id || boardInfo.synagogueId;
+          console.log('[QR] Fetched synagogueId from board-info:', synagogueId, 'Type:', typeof synagogueId);
         }
       } catch (error) {
         console.warn('[QR] Failed to fetch synagogue_id from board-info:', error);
       }
     }
     
-    if (synagogueId !== null && synagogueId !== undefined && synagogueId !== '') {
-      const formattedId = String(synagogueId).padStart(3, '0'); // פורמט 3 ספרות: 001-999
+    // בדיקה מחמירה יותר - רק אם יש ערך תקף (לא null, undefined, false, '', או המחרוזת 'false')
+    const isValidId = synagogueId !== null && 
+                      synagogueId !== undefined && 
+                      synagogueId !== false && 
+                      synagogueId !== '' && 
+                      String(synagogueId).toLowerCase() !== 'false' &&
+                      !isNaN(Number(synagogueId));
+    
+    console.log('[QR] Final synagogueId validation:', {
+      synagogueId,
+      type: typeof synagogueId,
+      isValidId,
+      stringValue: String(synagogueId)
+    });
+    
+    if (isValidId) {
+      const formattedId = String(synagogueId).padStart(3, '0');
       const joinUrl = `https://shchakim-connect.rabaz.co.il/home?code=${formattedId}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}`;
+      console.log('[QR] Generating QR code for:', joinUrl);
       const img1 = document.querySelector('img[data-id="1093:184"]');
       if (img1) {
         img1.src = qrUrl;
         img1.setAttribute('src', qrUrl);
+        console.log('[QR] QR code image updated successfully');
+      } else {
+        console.warn('[QR] Image element with data-id="1093:184" not found');
       }
+    } else {
+      console.warn('[QR] Invalid synagogueId, skipping QR code generation:', synagogueId);
     }
     
     // עדכוני הלכה וכשרות - rabaz.co.il

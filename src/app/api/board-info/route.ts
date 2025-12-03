@@ -49,33 +49,113 @@ export async function GET(req: Request) {
 
     console.log(`[PROXY] Board-info GET: response status ${response.status} for board ${boardId}`);
 
-           if (!response.ok) {
+    if (!response.ok) {
       const errorText = await response.text();
       console.log(`[PROXY] Board-info GET: error response: ${errorText}`);
-             return NextResponse.json({ linked: false }, {
-               headers: {
-                 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-                 'Pragma': 'no-cache'
-               }
-             });
+      
+      const displayContentUrl = `${API_BASE}/api/display/content?boardId=${encodeURIComponent(boardId)}`;
+      console.log(`[PROXY] Board-info GET: Trying fallback to display-content: ${displayContentUrl}`);
+      
+      try {
+        const displayContentResponse = await fetch(displayContentUrl, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store'
+        });
+        
+        if (displayContentResponse.ok) {
+          const displayContent = await displayContentResponse.json();
+          console.log(`[PROXY] Board-info GET: Got data from display-content fallback`);
+          
+          const fallbackData: BoardInfo = {
+            linked: true,
+            user_id: displayContent.boardInfo?.user_id,
+            name: displayContent.boardInfo?.name,
+            display_name: displayContent.boardInfo?.display_name,
+            displayName: displayContent.boardInfo?.displayName,
+            base_name: displayContent.boardInfo?.base_name,
+            base_description: displayContent.boardInfo?.base_description,
+            board_bid: displayContent.boardId,
+            location: displayContent.boardInfo?.location,
+            prayers: displayContent.prayers || [],
+            updates: displayContent.updates || []
+          };
+          
+          return NextResponse.json(fallbackData, {
+            headers: {
+              'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+              'Pragma': 'no-cache'
+            }
+          });
+        }
+      } catch (fallbackError) {
+        console.error(`[PROXY] Board-info GET: Fallback to display-content also failed:`, fallbackError);
+      }
+      
+      return NextResponse.json({ linked: false }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache'
+        }
+      });
     }
 
     const data: BoardInfo = await response.json();
     console.log(`[PROXY] Board-info GET: success response:`, JSON.stringify(data));
-           return NextResponse.json(data, {
-             headers: {
-               'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-               'Pragma': 'no-cache'
-             }
-           });
+    return NextResponse.json(data, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache'
+      }
+    });
   } catch (error) {
     console.error(`[PROXY] Board-info GET: error proxying request for board ${boardId}:`, error);
-           return NextResponse.json({ linked: false }, {
-             headers: {
-               'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-               'Pragma': 'no-cache'
-             }
-           });
+    
+    const displayContentUrl = `${API_BASE}/api/display/content?boardId=${encodeURIComponent(boardId)}`;
+    console.log(`[PROXY] Board-info GET: Trying fallback to display-content after catch: ${displayContentUrl}`);
+    
+    try {
+      const displayContentResponse = await fetch(displayContentUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store'
+      });
+      
+      if (displayContentResponse.ok) {
+        const displayContent = await displayContentResponse.json();
+        console.log(`[PROXY] Board-info GET: Got data from display-content fallback (catch)`);
+        
+        const fallbackData: BoardInfo = {
+          linked: true,
+          user_id: displayContent.boardInfo?.user_id,
+          name: displayContent.boardInfo?.name,
+          display_name: displayContent.boardInfo?.display_name,
+          displayName: displayContent.boardInfo?.displayName,
+          base_name: displayContent.boardInfo?.base_name,
+          base_description: displayContent.boardInfo?.base_description,
+          board_bid: displayContent.boardId,
+          location: displayContent.boardInfo?.location,
+          prayers: displayContent.prayers || [],
+          updates: displayContent.updates || []
+        };
+        
+        return NextResponse.json(fallbackData, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma': 'no-cache'
+          }
+        });
+      }
+    } catch (fallbackError) {
+      console.error(`[PROXY] Board-info GET: Fallback to display-content also failed (catch):`, fallbackError);
+    }
+    
+    return NextResponse.json({ linked: false }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache'
+      }
+    });
   }
 }
 
