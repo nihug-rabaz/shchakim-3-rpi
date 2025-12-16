@@ -523,11 +523,11 @@ class ShchakimIntegration {
   }
 
   updateCredit() {
-    // Find rectangle-26-TP2yIe to get its position
+    // Find rectangle-23-TP2yIe (Shchakim logo) to get its position
     const referenceElement = this.getFirstElement([
-      'body > div.container-center-horizontal > div > div.rectangle-26-TP2yIe',
-      '.rectangle-26-TP2yIe',
-      '[data-id*="rectangle-26"]'
+      'body > div.container-center-horizontal > div > div.rectangle-23-TP2yIe',
+      '.rectangle-23-TP2yIe',
+      '[data-id*="rectangle-23"]'
     ]);
 
     let creditElement = document.getElementById('shchakim-credit');
@@ -555,7 +555,10 @@ class ShchakimIntegration {
       creditElement.style.position = 'fixed';
       creditElement.style.left = '50%';
       creditElement.style.transform = 'translateX(-50%)';
-      creditElement.style.top = `${rect.top}px`;
+      const creditRect = creditElement.getBoundingClientRect();
+      const creditHeight = creditRect.height || 0;
+      const targetTop = rect.top + (rect.height - creditHeight) / 2;
+      creditElement.style.top = `${targetTop}px`;
       creditElement.style.zIndex = '2147483646';
       creditElement.style.color = '#ffffff';
       creditElement.style.fontSize = '14px';

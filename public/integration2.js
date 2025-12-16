@@ -461,10 +461,10 @@ class LetterIntegration {
   }
 
   updateCredit() {
-    // Find rectangle-26-7kVli2 to get its position (for letter page)
-    const referenceElement = document.querySelector('body > div > div.rectangle-26-7kVli2') || 
-                             document.querySelector('.rectangle-26-7kVli2') ||
-                             document.querySelector('[data-id*="rectangle-26"]');
+    // Find rectangle-23-7kVli2 (Shchakim logo) to get its position (for letter page)
+    const referenceElement = document.querySelector('body > div.frame-18.screen > div.rectangle-23-7kVli2') || 
+                             document.querySelector('.rectangle-23-7kVli2') ||
+                             document.querySelector('[data-id*="rectangle-23"]');
 
     let creditElement = document.getElementById('shchakim-credit');
     
@@ -491,7 +491,10 @@ class LetterIntegration {
       creditElement.style.position = 'fixed';
       creditElement.style.left = '50%';
       creditElement.style.transform = 'translateX(-50%)';
-      creditElement.style.top = `${rect.top}px`;
+      const creditRect = creditElement.getBoundingClientRect();
+      const creditHeight = creditRect.height || 0;
+      const targetTop = rect.top + (rect.height - creditHeight) / 2;
+      creditElement.style.top = `${targetTop}px`;
       creditElement.style.zIndex = '2147483646';
       creditElement.style.color = '#ffffff';
       creditElement.style.fontSize = '14px';
