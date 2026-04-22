@@ -12,6 +12,8 @@ type BoardInfo = {
 };
 
 export default function DisplayPage() {
+  const LOCK_ON_LOADING_SCREEN = false;
+  const LOCK_ON_LOADING_GIF = false;
   const router = useRouter();
   const [boardId, setBoardId] = useState<string>('');
   const [boardInfo, setBoardInfo] = useState<BoardInfo | null>(null);
@@ -28,6 +30,7 @@ export default function DisplayPage() {
   const [durations, setDurations] = useState({ letter: 90, halacha: 30 });
   const [iframeReloadKey, setIframeReloadKey] = useState(0);
   const lastFabCommandRef = useRef<string | null>(null);
+  const letterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sliderFrameRef = useRef<HTMLIFrameElement>(null);
   const letterFrameRef = useRef<HTMLIFrameElement>(null);
 
@@ -36,6 +39,20 @@ export default function DisplayPage() {
     setFramesLoaded({ slider: false, letter: false });
     setShowLoadVideo(true);
     setIframeReloadKey((prev) => prev + 1);
+  }, []);
+
+  const switchViewNow = useCallback(() => {
+    if (letterTimeoutRef.current) {
+      clearTimeout(letterTimeoutRef.current);
+      letterTimeoutRef.current = null;
+    }
+    setCurrentView((prev) => {
+      const next = prev === 'slider' ? 'letter' : 'slider';
+      if (next === 'slider' && sliderFrameRef.current?.contentWindow) {
+        sliderFrameRef.current.contentWindow.postMessage({ type: 'start-from-halacha' }, '*');
+      }
+      return next;
+    });
   }, []);
 
   const consumeEmergencyReloadFlag = useCallback(() => {
@@ -130,12 +147,12 @@ export default function DisplayPage() {
         const response = await fetch(`/api/display/content?boardId=${boardId}`);
         if (response.ok) {
           const data = await response.json();
-          if (data.durations) {
-            setDurations({
-              letter: data.durations.letter || 90,
-              halacha: data.durations.halacha || 30
-            });
-          }
+          const parsedLetter = Number(data?.durations?.letter);
+          const parsedHalacha = Number(data?.durations?.halacha);
+          setDurations({
+            letter: Number.isFinite(parsedLetter) && parsedLetter > 0 ? Math.floor(parsedLetter) : 90,
+            halacha: Number.isFinite(parsedHalacha) && parsedHalacha > 0 ? Math.floor(parsedHalacha) : 30
+          });
         }
       } catch (error) {
         console.error('[DISPLAY] Error loading durations:', error);
@@ -144,6 +161,8 @@ export default function DisplayPage() {
 
     if (boardInfo?.linked) {
       loadDurations();
+      const interval = setInterval(loadDurations, 60000);
+      return () => clearInterval(interval);
     }
   }, [boardId, boardInfo?.linked]);
 
@@ -156,7 +175,10 @@ export default function DisplayPage() {
         }
         setCurrentView('letter');
         const letterDuration = durations.letter * 1000;
-        setTimeout(() => {
+        if (letterTimeoutRef.current) {
+          clearTimeout(letterTimeoutRef.current);
+        }
+        letterTimeoutRef.current = setTimeout(() => {
           setCurrentView('slider');
           if (sliderFrameRef.current?.contentWindow) {
             sliderFrameRef.current.contentWindow.postMessage({ type: 'start-from-halacha' }, '*');
@@ -191,7 +213,13 @@ export default function DisplayPage() {
     };
 
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      if (letterTimeoutRef.current) {
+        clearTimeout(letterTimeoutRef.current);
+        letterTimeoutRef.current = null;
+      }
+    };
   }, [boardId, router, durations]);
 
   useEffect(() => {
@@ -386,6 +414,7 @@ export default function DisplayPage() {
   }, [boardInfo?.linked, framesLoaded.slider]);
 
   useEffect(() => {
+    if (LOCK_ON_LOADING_GIF) return;
     if (showLoadVideo) {
       console.log('[DISPLAY] Showing load GIF');
       const timer = setTimeout(() => {
@@ -397,13 +426,13 @@ export default function DisplayPage() {
         clearTimeout(timer);
       };
     }
-  }, [showLoadVideo]);
+  }, [showLoadVideo, LOCK_ON_LOADING_GIF]);
 
 
   const allFramesLoaded = framesLoaded.slider && framesLoaded.letter;
-  const showLoading = isLoading || (boardInfo?.linked && !allFramesLoaded);
+  const showLoading = LOCK_ON_LOADING_SCREEN || isLoading || (boardInfo?.linked && !allFramesLoaded);
 
-  if (isLoading && !boardInfo?.linked) {
+  if (!LOCK_ON_LOADING_SCREEN && isLoading && !boardInfo?.linked) {
     return (
       <div style={{
         width: '100vw',
@@ -422,7 +451,7 @@ export default function DisplayPage() {
   }
 
 
-  if (!boardInfo?.linked) {
+  if (!LOCK_ON_LOADING_SCREEN && !boardInfo?.linked) {
     return (
       <div style={{
         width: '100vw',
@@ -568,6 +597,32 @@ export default function DisplayPage() {
     transition: 'opacity 0.5s ease-in-out',
   };
 
+  const creditContent = (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '10px',
+      color: '#2b2d33',
+      fontSize: '26px',
+      fontWeight: 500,
+      direction: 'rtl'
+    }}>
+      <img
+        src="https://adran-haleh.rabaz.co.il/logo-nihug.webp"
+        alt="לוגו ניהו״ג"
+        style={{
+          width: '56px',
+          height: '56px',
+          objectFit: 'contain',
+          display: 'block'
+        }}
+      />
+      <span>פותח ע&quot;י תחום ניהו&quot;ג מטה הרבנות הצבאית</span>
+    </div>
+  );
+
   return (
     <div style={{
       width: '100vw',
@@ -582,7 +637,7 @@ export default function DisplayPage() {
       bottom: 0,
       isolation: 'isolate'
     }}>
-      {showLoadVideo && (
+      {(LOCK_ON_LOADING_GIF || showLoadVideo) && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -590,9 +645,10 @@ export default function DisplayPage() {
           width: '100%',
           height: '100%',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#FFFFFF',
+          background: '#f8f8fa',
           zIndex: 9999,
           opacity: 1,
           pointerEvents: 'auto'
@@ -611,13 +667,16 @@ export default function DisplayPage() {
               maxHeight: '100%',
               height: '55vh',
               objectFit: 'contain',
-              display: 'block'
+              clipPath: 'inset(9% 11% 12% 11%)',
+              display: 'block',
+              marginBottom: '48px'
             }}
           />
+          {creditContent}
         </div>
       )}
 
-      {showLoading && !showLoadVideo && (
+      {showLoading && !(LOCK_ON_LOADING_GIF || showLoadVideo) && (
         <div style={{
           position: 'absolute',
           top: 0,
@@ -662,8 +721,8 @@ export default function DisplayPage() {
         src={`/html.html?reload=${iframeReloadKey}`}
         style={{
           ...iframeStyle,
-          opacity: currentView === 'slider' && allFramesLoaded && !showLoadVideo ? 1 : 0,
-          pointerEvents: currentView === 'slider' && allFramesLoaded && !showLoadVideo ? 'auto' : 'none',
+          opacity: currentView === 'slider' && allFramesLoaded && !(LOCK_ON_LOADING_GIF || showLoadVideo) ? 1 : 0,
+          pointerEvents: currentView === 'slider' && allFramesLoaded && !(LOCK_ON_LOADING_GIF || showLoadVideo) ? 'auto' : 'none',
           zIndex: currentView === 'slider' ? 1 : 0
         }}
         title="Shchakim Slider"
@@ -677,14 +736,37 @@ export default function DisplayPage() {
         src={`/html2.html?reload=${iframeReloadKey}`}
         style={{
           ...iframeStyle,
-          opacity: currentView === 'letter' && allFramesLoaded && !showLoadVideo ? 1 : 0,
-          pointerEvents: currentView === 'letter' && allFramesLoaded && !showLoadVideo ? 'auto' : 'none',
+          opacity: currentView === 'letter' && allFramesLoaded && !(LOCK_ON_LOADING_GIF || showLoadVideo) ? 1 : 0,
+          pointerEvents: currentView === 'letter' && allFramesLoaded && !(LOCK_ON_LOADING_GIF || showLoadVideo) ? 'auto' : 'none',
           zIndex: currentView === 'letter' ? 1 : 0
         }}
         title="Shchakim Letter"
         scrolling="no"
         allow="fullscreen"
       />
+
+      <button
+        aria-label="debug-switch-view"
+        onClick={switchViewNow}
+        style={{
+          position: 'fixed',
+          right: 'max(16px, env(safe-area-inset-right, 0px))',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 92,
+          height: 44,
+          borderRadius: 10,
+          border: '1px solid rgba(255,255,255,0.35)',
+          background: 'rgba(0,0,0,0.72)',
+          color: '#fff',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer',
+          zIndex: 2147483647
+        }}
+      >
+        החלף מסך
+      </button>
 
 
       {showFab && (

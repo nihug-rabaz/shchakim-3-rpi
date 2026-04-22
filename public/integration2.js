@@ -436,27 +436,15 @@ class LetterIntegration {
 
   updateParasha() {
     const parashaElement = document.querySelector('div[data-id="1007:124"] .span0-J6uY4J');
-    const orgElement = document.querySelector('div[data-id="1007:124"] .span2-J6uY4J');
-    
-    if (parashaElement && this.zmanimData?.parasha) {
-      parashaElement.textContent = `פרשת ${this.zmanimData.parasha}`;
-    }
-    
-    if (orgElement && this.config?.organization?.name) {
-      orgElement.textContent = this.config.organization.name;
+    if (parashaElement) {
+      parashaElement.textContent = '';
     }
   }
 
   updateOrganization() {
     const orgElement = document.querySelector('div[data-id="1007:124"] .span2-J6uY4J');
     if (orgElement) {
-      if (this.content?.boardInfo?.display_name) {
-        orgElement.textContent = this.content.boardInfo.display_name;
-      } else if (this.content?.boardInfo?.base_name) {
-        orgElement.textContent = this.content.boardInfo.base_name;
-      } else if (this.config?.organization?.name) {
-        orgElement.textContent = this.config.organization.name;
-      }
+      orgElement.textContent = '';
     }
   }
 
@@ -469,14 +457,26 @@ class LetterIntegration {
     let creditElement = document.getElementById('shchakim-credit');
     
     if (!creditElement) {
-      // Create credit element if it doesn't exist
       creditElement = document.createElement('div');
       creditElement.id = 'shchakim-credit';
       creditElement.setAttribute('dir', 'rtl');
-      creditElement.textContent = 'פותח ע"י ניהול הידע וההנגשה מטה הרבנות הצבאית';
+      creditElement.style.display = 'flex';
+      creditElement.style.flexDirection = 'row';
+      creditElement.style.alignItems = 'center';
+      creditElement.style.justifyContent = 'center';
+      creditElement.style.gap = '8px';
+      const logo = document.createElement('img');
+      logo.src = 'https://adran-haleh.rabaz.co.il/logo-nihug.webp';
+      logo.alt = 'לוגו ניהו״ג';
+      logo.style.width = '30px';
+      logo.style.height = '30px';
+      logo.style.objectFit = 'contain';
+      const text = document.createElement('span');
+      text.textContent = 'פותח ע"י תחום ניהו"ג מטה הרבנות הצבאית';
+      creditElement.appendChild(logo);
+      creditElement.appendChild(text);
       document.body.appendChild(creditElement);
       
-      // Add resize listener to update position on window resize
       if (!this._creditResizeListener) {
         this._creditResizeListener = () => {
           this.updateCredit();
@@ -501,11 +501,10 @@ class LetterIntegration {
       creditElement.style.fontFamily = "'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', sans-serif";
       creditElement.style.textAlign = 'center';
       creditElement.style.pointerEvents = 'none';
-      creditElement.style.opacity = '0.8';
+      creditElement.style.opacity = '0.9';
       creditElement.style.whiteSpace = 'nowrap';
       console.log('[CREDIT] Positioned credit at top:', rect.top, 'px');
     } else {
-      // Fallback positioning if reference element not found - center left of screen
       creditElement.style.position = 'fixed';
       creditElement.style.left = '50%';
       creditElement.style.transform = 'translateX(-50%)';
@@ -522,147 +521,160 @@ class LetterIntegration {
     }
   }
 
-  updateLetter() {
-    const titleElements = document.querySelectorAll('p.x-7kVli2[data-id="1016:226"], p.x-uw3PhT[data-id="1016:228"]');
-    let contentElements = document.querySelectorAll('p[data-id^="1015:"]');
-    if (contentElements.length === 0) {
-      contentElements = document.querySelectorAll('p.x-0MVGL4[data-id="1015:220"], p.x-I2QLxE[data-id="1015:223"], p.x-xcJxFm[data-id="1015:224"]');
-    }
-    const signatureImg = document.querySelector('img.x1-7kVli2[data-id="1016:227"]');
-    
-    if (this.content?.letter) {
-      titleElements.forEach(el => {
-        if (this.zmanimData?.parasha) {
-          el.textContent = `אגרת רבצ"ר - פרשת ${this.zmanimData.parasha}`;
-        }
-      });
+  normalizeLetterData() {
+    const rawLetter = this.content?.letter;
+    if (!rawLetter) return null;
 
-      let contentParts = [];
-      if (Array.isArray(this.content.letter.content)) {
-        contentParts = [...this.content.letter.content];
-      } else if (typeof this.content.letter.content === 'string') {
-        contentParts = this.content.letter.content.split('\n\n');
+    let rawContent = null;
+    let parasha = null;
+    let signature = null;
+
+    if (typeof rawLetter === 'string') {
+      rawContent = rawLetter;
+    } else if (typeof rawLetter === 'object') {
+      if (Array.isArray(rawLetter.content)) {
+        rawContent = [...rawLetter.content];
+      } else if (typeof rawLetter.content === 'string') {
+        rawContent = rawLetter.content;
+      } else if (typeof rawLetter.html === 'string') {
+        rawContent = rawLetter.html;
       }
-      
-      const signatureText = 'תא"ל הרב איל קרים הרב הראשי לצה"ל';
-      
-      if (contentParts.length > 0) {
-        const lastPart = contentParts[contentParts.length - 1];
-        if (!lastPart.includes('בהוקרה') && !lastPart.includes('תא"ל')) {
-          contentParts[contentParts.length - 1] = lastPart + '\nבהוקרה רבה,';
+      if (typeof rawLetter.parasha === 'string') parasha = rawLetter.parasha;
+      if (typeof rawLetter.signature === 'string') signature = rawLetter.signature;
+    }
+
+    const extractedText = this.extractLetterPlainText(rawContent);
+    if (!extractedText) return null;
+
+    const detectedParasha = this.extractParashaFromLetterText(extractedText);
+    const cleanedText = this.removeLetterHeaderLine(extractedText);
+    const columns = this.splitTextToThreeColumns(cleanedText);
+    const normalizedParasha = detectedParasha || parasha || this.zmanimData?.parasha || null;
+    return { columns, parasha: normalizedParasha, signature: signature || null };
+  }
+
+  extractLetterPlainText(rawContent) {
+    if (!rawContent) return '';
+    if (Array.isArray(rawContent)) {
+      return rawContent.map(part => String(part || '').trim()).filter(Boolean).join(' ');
+    }
+    const text = String(rawContent).trim();
+    if (!text) return '';
+    if (text.includes('<')) {
+      const tempContainer = document.createElement('div');
+      tempContainer.innerHTML = text;
+      const extracted = tempContainer.textContent || tempContainer.innerText || '';
+      return extracted.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    return text.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  extractParashaFromLetterText(text) {
+    if (!text) return null;
+    const match = text.match(/פרשת\s+([א-ת"׳״׳\-–\s]{2,40})/u);
+    if (!match || !match[1]) return null;
+    return match[1].replace(/[.,:;|]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  removeLetterHeaderLine(text) {
+    if (!text) return '';
+    return text
+      .replace(/איגרת\s+רבצ"ר\s*-\s*פרשת\s+[א-ת"׳״׳\-–\s]{2,40}/u, '')
+      .replace(/אגרת\s+רבצ"ר\s*-\s*פרשת\s+[א-ת"׳״׳\-–\s]{2,40}/u, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  splitTextToThreeColumns(text) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const col1 = words.slice(0, 135).join(' ');
+    const col2 = words.slice(135, 273).join(' ');
+    const col3 = words.slice(273, 389).join(' ');
+    return [col1, col2, col3];
+  }
+
+  getLetterContentColumns() {
+    const byId = [
+      document.querySelector('p[data-id="1015:220"]'),
+      document.querySelector('p[data-id="1015:223"]'),
+      document.querySelector('p[data-id="1015:224"]')
+    ].filter(Boolean);
+
+    if (byId.length === 3) {
+      return byId;
+    }
+
+    return Array.from(document.querySelectorAll('p[data-id^="1015:"]')).slice(0, 3);
+  }
+
+  updateSignature(signatureImg, signatureText, fallbackElement) {
+    if (signatureImg) {
+      setTimeout(() => {
+        let signatureTextEl = signatureImg.nextElementSibling;
+        if (!signatureTextEl || !signatureTextEl.classList.contains('signature-text')) {
+          signatureTextEl = document.createElement('p');
+          signatureTextEl.className = 'signature-text leon-productregular-normal-black-52px';
+          signatureTextEl.style.marginTop = '20px';
+          signatureTextEl.style.fontFamily = "Polin, 'Polin-A-Regular', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+          signatureImg.parentNode.insertBefore(signatureTextEl, signatureImg.nextSibling);
         }
-      } else {
-        contentParts.push('בהוקרה רבה,');
-      }
-      
-      if (contentElements.length > 0 && contentParts.length > contentElements.length) {
-        const firstElement = contentElements[0];
-        const lastOriginalElement = contentElements[contentElements.length - 1];
-        const container = firstElement.parentElement;
-        let insertBeforeElement = signatureImg;
-        
-        if (lastOriginalElement && lastOriginalElement.nextSibling) {
-          insertBeforeElement = lastOriginalElement.nextSibling;
-        }
-        
-        const lastComputedStyle = window.getComputedStyle(lastOriginalElement);
-        const originalClasses = Array.from(lastOriginalElement.classList);
-        
-        for (let i = contentElements.length; i < contentParts.length; i++) {
-          const newElement = lastOriginalElement.cloneNode(true);
-          newElement.textContent = '';
-          
-          originalClasses.forEach(cls => {
-            newElement.classList.add(cls);
-          });
-          
-          const baseId = 220 + i;
-          newElement.setAttribute('data-id', `1015:${baseId}`);
-          
-          const stylesToCopy = ['position', 'left', 'top', 'width', 'height', 'color', 'fontFamily', 'fontSize', 'fontStyle', 'fontWeight', 'lineHeight', 'textAlign', 'display', 'margin', 'padding', 'background', 'backgroundColor', 'border', 'borderRadius'];
-          stylesToCopy.forEach(prop => {
-            const value = lastComputedStyle.getPropertyValue(prop);
-            if (value && value !== 'none' && value !== 'rgba(0, 0, 0, 0)') {
-              newElement.style.setProperty(prop, value);
-            }
-          });
-          
-          newElement.style.background = 'transparent';
-          newElement.style.backgroundColor = 'transparent';
-          
-          if (container) {
-            if (insertBeforeElement) {
-              container.insertBefore(newElement, insertBeforeElement);
-            } else {
-              container.appendChild(newElement);
-            }
-            insertBeforeElement = newElement;
-          }
-        }
-        
-        contentElements = document.querySelectorAll('p[data-id^="1015:"]');
-      }
-      
-      contentElements.forEach((el, idx) => {
-        if (idx < contentParts.length) {
-          el.textContent = contentParts[idx];
-        } else {
-          el.textContent = '';
-        }
-      });
-      
-      if (signatureImg) {
-        setTimeout(() => {
-          let signatureTextEl = signatureImg.nextElementSibling;
-          if (!signatureTextEl || !signatureTextEl.classList.contains('signature-text')) {
-            signatureTextEl = document.createElement('p');
-            signatureTextEl.className = 'signature-text leon-productregular-normal-black-52px';
-            signatureTextEl.style.marginTop = '20px';
-            signatureTextEl.style.fontFamily = "Polin, 'Polin-A-Regular', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-            signatureImg.parentNode.insertBefore(signatureTextEl, signatureImg.nextSibling);
-          }
-          
-          const currentText = signatureTextEl.textContent || '';
-          if (!currentText.includes('תא"ל') && !currentText.includes('הרב הראשי')) {
-            signatureTextEl.textContent = 'תא"ל הרב איל קרים הרב הראשי לצה"ל';
-          }
-        }, 100);
-      } else if (lastContentElement) {
-        setTimeout(() => {
-          const currentText = lastContentElement.textContent || '';
-          if (!currentText.includes('תא"ל') && !currentText.includes('הרב הראשי')) {
-            lastContentElement.textContent = currentText + (currentText ? '\n' : '') + signatureText;
-          }
-        }, 100);
-      }
-    } else {
-      const lastElement = contentElements[contentElements.length - 1];
-      if (lastElement) {
-        const currentText = lastElement.textContent || '';
-        const fullSignature = 'בהוקרה רבה, תא"ל הרב איל קרים הרב הראשי לצה"ל';
+        const currentText = signatureTextEl.textContent || '';
         if (!currentText.includes('תא"ל') && !currentText.includes('הרב הראשי')) {
-          lastElement.textContent = currentText + (currentText ? '\n' : '') + fullSignature;
+          signatureTextEl.textContent = signatureText;
         }
+      }, 100);
+      return;
+    }
+
+    if (fallbackElement) {
+      setTimeout(() => {
+        const currentText = fallbackElement.textContent || '';
+        if (!currentText.includes('תא"ל') && !currentText.includes('הרב הראשי')) {
+          fallbackElement.textContent = currentText + (currentText ? '\n' : '') + signatureText;
+        }
+      }, 100);
+    }
+  }
+
+  updateLetter() {
+    const titleElements = Array.from(document.querySelectorAll('p.x-7kVli2[data-id="1016:226"], p.x-uw3PhT[data-id="1016:228"]'));
+    const contentElements = this.getLetterContentColumns();
+    const signatureImg = document.querySelector('img.x1-7kVli2[data-id="1016:227"]');
+    const normalizedLetter = this.normalizeLetterData();
+    if (!normalizedLetter) return;
+
+    if (normalizedLetter.parasha) {
+      const normalizedTitle = `אגרת רבצ"ר - פרשת ${normalizedLetter.parasha}`;
+      if (titleElements[0]) {
+        titleElements[0].textContent = normalizedTitle;
       }
-      
-      if (signatureImg) {
-        setTimeout(() => {
-          let signatureTextEl = signatureImg.nextElementSibling;
-          if (!signatureTextEl || !signatureTextEl.classList.contains('signature-text')) {
-            signatureTextEl = document.createElement('p');
-            signatureTextEl.className = 'signature-text leon-productregular-normal-black-52px';
-            signatureTextEl.style.marginTop = '20px';
-            signatureTextEl.style.fontFamily = "Polin, 'Polin-A-Regular', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-            signatureImg.parentNode.insertBefore(signatureTextEl, signatureImg.nextSibling);
-          }
-          
-          const currentText = signatureTextEl.textContent || '';
-          if (!currentText.includes('תא"ל') && !currentText.includes('הרב הראשי')) {
-            signatureTextEl.textContent = 'תא"ל הרב איל קרים הרב הראשי לצה"ל';
-          }
-        }, 100);
+      titleElements.slice(1).forEach(el => {
+        el.textContent = '';
+      });
+    }
+
+    const columns = [...normalizedLetter.columns];
+    const closingText = 'בהוקרה רבה תא"ל הרב איל קרים הרב הראשי לצה"ל';
+    const hasClosing = columns.some(col => col && col.includes('בהוקרה'));
+    if (!hasClosing) {
+      if (columns[2]) {
+        columns[2] = `${columns[2]} ${closingText}`.trim();
+      } else if (columns[1]) {
+        columns[1] = `${columns[1]} ${closingText}`.trim();
+      } else if (columns[0]) {
+        columns[0] = `${columns[0]} ${closingText}`.trim();
       }
     }
+
+    contentElements.forEach((el, idx) => {
+      if (el) {
+        el.textContent = columns[idx] || '';
+      }
+    });
+
+    const lastContentElement = contentElements[contentElements.length - 1];
+    const signatureText = normalizedLetter.signature || 'תא"ל הרב איל קרים הרב הראשי לצה"ל';
+    this.updateSignature(signatureImg, signatureText, lastContentElement);
   }
 
   async updateQRCodes() {

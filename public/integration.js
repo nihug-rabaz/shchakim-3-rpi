@@ -533,14 +533,26 @@ class ShchakimIntegration {
     let creditElement = document.getElementById('shchakim-credit');
     
     if (!creditElement) {
-      // Create credit element if it doesn't exist
       creditElement = document.createElement('div');
       creditElement.id = 'shchakim-credit';
       creditElement.setAttribute('dir', 'rtl');
-      creditElement.textContent = 'פותח ע"י ניהול הידע וההנגשה מטה הרבנות הצבאית';
+      creditElement.style.display = 'flex';
+      creditElement.style.flexDirection = 'row';
+      creditElement.style.alignItems = 'center';
+      creditElement.style.justifyContent = 'center';
+      creditElement.style.gap = '8px';
+      const logo = document.createElement('img');
+      logo.src = 'https://adran-haleh.rabaz.co.il/logo-nihug.webp';
+      logo.alt = 'לוגו ניהו״ג';
+      logo.style.width = '30px';
+      logo.style.height = '30px';
+      logo.style.objectFit = 'contain';
+      const text = document.createElement('span');
+      text.textContent = 'פותח ע"י תחום ניהו"ג מטה הרבנות הצבאית';
+      creditElement.appendChild(logo);
+      creditElement.appendChild(text);
       document.body.appendChild(creditElement);
       
-      // Add resize listener to update position on window resize
       if (!this._creditResizeListener) {
         this._creditResizeListener = () => {
           this.updateCredit();
@@ -565,11 +577,10 @@ class ShchakimIntegration {
       creditElement.style.fontFamily = "'Polin', Arial, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', sans-serif";
       creditElement.style.textAlign = 'center';
       creditElement.style.pointerEvents = 'none';
-      creditElement.style.opacity = '0.8';
+      creditElement.style.opacity = '0.9';
       creditElement.style.whiteSpace = 'nowrap';
       console.log('[CREDIT] Positioned credit at top:', rect.top, 'px');
     } else {
-      // Fallback positioning if reference element not found - center left of screen
       creditElement.style.position = 'fixed';
       creditElement.style.left = '50%';
       creditElement.style.transform = 'translateX(-50%)';

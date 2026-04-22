@@ -1,7 +1,56 @@
 import { NextResponse } from 'next/server';
-import BoardManager from '@/utils/BoardManager';
 
 const API_BASE = 'https://shchakim.rabaz.co.il';
+
+type LetterPayload = {
+  id?: string | number | null;
+  title?: string | null;
+  parasha?: string | null;
+  signature?: string | null;
+  html?: string | null;
+  content?: string | string[] | null;
+  updatedAt?: string | null;
+};
+
+function normalizeLetter(letter: unknown): LetterPayload | string | null {
+  if (!letter) return null;
+  if (typeof letter === 'string') {
+    const trimmed = letter.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof letter !== 'object') return null;
+
+  const source = letter as Record<string, unknown>;
+  const rawHtml = typeof source.html === 'string' ? source.html.trim() : '';
+  const rawContent = source.content;
+  const normalized: LetterPayload = {
+    id: (source.id as string | number | null) ?? null,
+    title: typeof source.title === 'string' ? source.title : null,
+    parasha: typeof source.parasha === 'string' ? source.parasha : null,
+    signature: typeof source.signature === 'string' ? source.signature : null,
+    updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : null
+  };
+
+  if (rawHtml) {
+    normalized.html = rawHtml;
+  }
+  if (Array.isArray(rawContent)) {
+    const parts = rawContent.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean);
+    if (parts.length > 0) normalized.content = parts;
+  } else if (typeof rawContent === 'string') {
+    const content = rawContent.trim();
+    if (content) normalized.content = content;
+  }
+
+  if (!normalized.html && !normalized.content) return null;
+  return normalized;
+}
+
+function normalizeDurationValue(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -15,17 +64,24 @@ export async function GET(req: Request) {
   try {
     const boardInfoUrl = `${API_BASE}/api/board-info?id=${encodeURIComponent(boardId)}`;
     const displayContentUrl = `${API_BASE}/api/display/content?boardId=${encodeURIComponent(boardId)}${emergencyUpdateParam ? `&emergencyUpdate=${encodeURIComponent(emergencyUpdateParam)}` : ''}`;
+    const localBaseUrl = `${url.protocol}//${url.host}`;
+    const checkClaimUrl = `${localBaseUrl}/api/check-claim-status?board_id=${encodeURIComponent(boardId)}`;
     
     console.log(`[PROXY] Display-content: fetching board info from ${boardInfoUrl}`);
     console.log(`[PROXY] Display-content: fetching display content from ${displayContentUrl}`);
 
-    const [boardInfoResponse, displayContentResponse] = await Promise.all([
+    const [boardInfoResponse, displayContentResponse, checkClaimResponse] = await Promise.all([
       fetch(boardInfoUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store'
       }),
       fetch(displayContentUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store'
+      }),
+      fetch(checkClaimUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store'
@@ -104,6 +160,31 @@ export async function GET(req: Request) {
     console.log(`[PROXY] Display-content: final fab - enabled: ${fabEnabled}, command: ${fabCommand}`);
     
     const durations = boardInfo.durations || {};
+    let normalizedLetter: LetterPayload | string | null = null;
+
+    if (checkClaimResponse.ok) {
+      try {
+        const checkClaimData = await checkClaimResponse.json();
+        if (checkClaimData?.letter) {
+          normalizedLetter = normalizeLetter(checkClaimData.letter);
+        } else if (checkClaimData?.html) {
+          normalizedLetter = normalizeLetter({
+            html: checkClaimData.html,
+            id: checkClaimData.letterId || null,
+            title: checkClaimData.letterTitle || null,
+            parasha: checkClaimData.parasha || null,
+            signature: checkClaimData.signature || null,
+            updatedAt: checkClaimData.letterUpdatedAt || null
+          });
+        }
+      } catch (e) {
+        console.warn('[PROXY] Display-content: failed parsing check-claim-status response', e);
+      }
+    }
+
+    if (!normalizedLetter) {
+      normalizedLetter = normalizeLetter(boardInfo.letter) || normalizeLetter(externalContent?.letter);
+    }
     
     let emergency = null;
     
@@ -196,12 +277,12 @@ export async function GET(req: Request) {
       boardId: boardInfo.board_bid || boardId,
       prayers: boardInfo.prayers || [],
       updates: boardInfo.updates || [],
-      letter: boardInfo.letter || null,
+      letter: normalizedLetter,
       halacha: null,
       orders: [],
       durations: {
-        letter: durations.letter || 90,
-        halacha: durations.halacha || 30
+        letter: normalizeDurationValue(durations.letter, 90),
+        halacha: normalizeDurationValue(durations.halacha, 30)
       },
       emergency: emergency,
       additions: { prayerExtras: { shacharit: [], mincha: [], arvit: [] }, dayNotes: [] },
