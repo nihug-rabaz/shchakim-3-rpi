@@ -610,7 +610,7 @@ export default function DisplayPage() {
       direction: 'rtl'
     }}>
       <img
-        src="https://adran-haleh.rabaz.co.il/logo-nihug.webp"
+        src="/logo-nihug.webp"
         alt="לוגו ניהו״ג"
         style={{
           width: '56px',
@@ -745,6 +745,7 @@ export default function DisplayPage() {
         allow="fullscreen"
       />
 
+      {/*
       <button
         aria-label="debug-switch-view"
         onClick={switchViewNow}
@@ -767,6 +768,7 @@ export default function DisplayPage() {
       >
         החלף מסך
       </button>
+      */}
 
 
       {showFab && (

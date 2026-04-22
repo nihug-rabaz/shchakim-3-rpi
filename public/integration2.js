@@ -466,7 +466,7 @@ class LetterIntegration {
       creditElement.style.justifyContent = 'center';
       creditElement.style.gap = '8px';
       const logo = document.createElement('img');
-      logo.src = 'https://adran-haleh.rabaz.co.il/logo-nihug.webp';
+      logo.src = '/logo-nihug.webp';
       logo.alt = 'לוגו ניהו״ג';
       logo.style.width = '30px';
       logo.style.height = '30px';
